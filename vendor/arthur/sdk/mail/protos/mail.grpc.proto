@@ -1,0 +1,15 @@
+syntax = "proto3";
+package mail_grpc;
+
+service Action {
+    rpc exec_action (ActionRequest) returns (ActionResponse) {
+    }
+}
+
+message ActionRequest {
+    string action = 1;
+}
+
+message ActionResponse {
+    string message = 1;
+}

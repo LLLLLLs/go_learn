@@ -1,0 +1,21 @@
+syntax = "proto3";
+package chat_grpc;
+
+service Action {
+    rpc exec_action (ActionRequest) returns (ActionResponse) {
+    }
+}
+
+message ActionRequest {
+    string action = 1;
+}
+
+message ActionResponse {
+    string message = 1;
+}
+
+//# 这是python2生成grpc文件的命令，请结合chat_grpc.proto生成
+//# python -m grpc.tools.protoc -I. --python_out=../ --grpc_python_out=../ ./chat_grpc.proto
+//# 这是python3生成grpc文件的命令，请结合chat_grpc.proto生成
+//# python -m grpc_tools.protoc -I. --python_out=../ --grpc_python_out=../ --python_grpc_out=../ ./chat_grpc.proto
+
