@@ -26,3 +26,14 @@ func unsafePtr() {
 	ptr := unsafe.Pointer(&ts)
 	fmt.Printf("ptr:%p,unsafe:%v,reflect:%x\n", &ts, ptr, reflect.ValueOf(&ts).Pointer())
 }
+
+func unsafe2Uint() {
+	ts := struct {
+		A int64
+		B int64
+	}{1, 2}
+	var uintPtr uintptr
+	unsafePtr := unsafe.Pointer(&ts)
+	uintPtr = uintptr(unsafePtr)
+	fmt.Printf("%b\t%o\t%d\t%x\n", uintPtr, uintPtr, uintPtr, uintPtr)
+}
