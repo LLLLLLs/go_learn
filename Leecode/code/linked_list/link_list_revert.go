@@ -4,7 +4,7 @@ Time        : 2018/10/29
 Description : 链表翻转
 */
 
-package code
+package linked_list
 
 // 给出一个链表，每 k 个节点一组进行翻转，并返回翻转后的链表。
 //

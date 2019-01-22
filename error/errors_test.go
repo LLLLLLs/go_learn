@@ -14,3 +14,10 @@ func TestError(t *testing.T) {
 	fmt.Println(errors.Cause(err))
 	fmt.Printf("%+v\n", err)
 }
+
+func TestCheckError(t *testing.T) {
+	var e *Error = nil
+	fmt.Println(e == nil)
+	checkError(nil)
+	checkError(e)
+}

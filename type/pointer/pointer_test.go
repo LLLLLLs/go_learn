@@ -17,6 +17,10 @@ func TestUnsafePtr(t *testing.T) {
 	unsafePtr()
 }
 
+func TestUnsafe2Uint(t *testing.T) {
+	unsafe2Uint()
+}
+
 func BenchmarkUnsafePtr(b *testing.B) {
 	ts := struct {
 		A int64

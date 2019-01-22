@@ -4,7 +4,7 @@ Time        : 2018/10/29
 Description : 链表基础
 */
 
-package code
+package linked_list
 
 import "fmt"
 

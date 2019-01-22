@@ -226,7 +226,9 @@ func selectDrop() {
 }
 
 func main() {
-	fmt.Println(float64(19) / 29)
+	l1 := []int{1, 2, 3}
+	l2 := []int{1, 2, 3}
+	fmt.Println(reflect.DeepEqual(l1, l2))
 }
 
 func chanWithContext() {

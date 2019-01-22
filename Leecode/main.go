@@ -16,37 +16,11 @@ func main() {
 	s.solve()
 }
 
-type node struct {
-}
-
 type lru struct {
 	name string
 }
 
 type sudoku struct {
-}
-
-func (node node) firstNode() {
-	linkList := code.GetCircleLinkList(10, 5)
-	//code.PrintLinkList(linkList)
-	//linkList = code.FirstNodeInCircle(linkList)
-	linkList = code.FirstNodeInCircleImprove(linkList)
-	fmt.Println(linkList)
-	//code.PrintLinkList(linkList)
-}
-
-func (node node) revert() {
-	linkList := code.GetInitLinkList(50)
-	code.PrintLinkList(linkList)
-	linkList = code.Revert(linkList, 11)
-	code.PrintLinkList(linkList)
-}
-
-func (node node) revertAll() {
-	linkList := code.GetInitLinkList(10)
-	code.PrintLinkList(linkList)
-	linkList = code.RevertAll(nil, linkList)
-	code.PrintLinkList(linkList)
 }
 
 func (lru lru) cache() {

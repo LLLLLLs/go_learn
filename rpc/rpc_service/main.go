@@ -16,7 +16,7 @@ import (
 type HelloService struct{}
 
 func (hs *HelloService) Hello(request int, reply *[]string) error {
-	(*reply) = make([]string, request)
+	*reply = make([]string, request)
 	for i := 0; i < request; i++ {
 		(*reply)[i] = "hello" + strconv.Itoa(i)
 	}
