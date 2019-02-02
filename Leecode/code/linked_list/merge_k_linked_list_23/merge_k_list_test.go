@@ -57,6 +57,11 @@ func TestMergeKLists3(t *testing.T) {
 	l.Print()
 }
 
+func TestMergeKLists5(t *testing.T) {
+	l := mergeKLists5(lists)
+	l.Print()
+}
+
 func BenchmarkList1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		mergeKLists1(listBench)

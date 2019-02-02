@@ -5,6 +5,7 @@ package merge_k_linked_list_23
 
 import (
 	. "go_learn_test/Leecode/code/linked_list/base"
+	"sort"
 )
 
 //Merge k sorted linked lists and return it as one sorted list. Analyze and describe its complexity.
@@ -307,5 +308,24 @@ func mergeTwoLists(l1 *ListNode, l2 *ListNode) *ListNode {
 		prev.Next = l2
 	}
 
+	return head.Next
+}
+
+// 算法5 用slice排序
+func mergeKLists5(lists []*ListNode) *ListNode {
+	l := make([]int, 0)
+	for _, node := range lists {
+		for node != nil {
+			l = append(l, node.Val)
+			node = node.Next
+		}
+	}
+	sort.Ints(l)
+	head := &ListNode{}
+	now := head
+	for _, val := range l {
+		now.Next = &ListNode{Val: val}
+		now = now.Next
+	}
 	return head.Next
 }
