@@ -35,3 +35,8 @@ func sliceAppend() {
 func printInfo(s []int) {
 	fmt.Printf("%v\tlen:%d\tcap:%d\tptr:%p\n", s, len(s), cap(s), s)
 }
+
+func insert(list []int, value, pos int) []int {
+	list = append(list[:pos-1], append([]int{value}, list[pos-1:]...)...)
+	return list
+}
