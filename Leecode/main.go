@@ -8,7 +8,7 @@ package main
 
 import (
 	"fmt"
-	"go_learn_test/Leecode/code"
+	"go_learn/Leecode/code"
 )
 
 func main() {

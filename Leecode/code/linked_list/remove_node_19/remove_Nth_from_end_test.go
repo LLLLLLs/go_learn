@@ -4,7 +4,7 @@
 package remove_node_19
 
 import (
-	"go_learn_test/Leecode/code/linked_list/base"
+	"go_learn/Leecode/code/linked_list/base"
 	"testing"
 )
 

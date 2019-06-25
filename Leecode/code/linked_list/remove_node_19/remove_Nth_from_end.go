@@ -4,7 +4,7 @@
 package remove_node_19
 
 import (
-	. "go_learn_test/Leecode/code/linked_list/base"
+	. "go_learn/Leecode/code/linked_list/base"
 )
 
 // Given linked list: 1->2->3->4->5, and n = 2.

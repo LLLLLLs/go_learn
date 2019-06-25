@@ -24,6 +24,7 @@ import "fmt"
 //
 //
 //答案被标成红色。
+
 type node []int
 
 var sudokuMay [9][9]node

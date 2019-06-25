@@ -4,7 +4,7 @@
 package merge_k_linked_list_23
 
 import (
-	"go_learn_test/Leecode/code/linked_list/base"
+	"go_learn/Leecode/code/linked_list/base"
 	"math/rand"
 	"testing"
 	"time"

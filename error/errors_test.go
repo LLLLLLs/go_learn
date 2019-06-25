@@ -4,8 +4,8 @@
 package error
 
 import (
-	"arthur/utils/errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"testing"
 )
 
@@ -17,7 +17,6 @@ func TestError(t *testing.T) {
 
 func TestCheckError(t *testing.T) {
 	var e *Error = nil
-	fmt.Println(e == nil)
 	checkError(nil)
 	checkError(e)
 }

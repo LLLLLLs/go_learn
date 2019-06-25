@@ -4,7 +4,7 @@
 package reverse_k_group_25
 
 import (
-	. "go_learn_test/Leecode/code/linked_list/base"
+	. "go_learn/Leecode/code/linked_list/base"
 )
 
 //Given a linked list, reverse the nodes of a linked list k at a time and return its modified list.

@@ -1,9 +1,6 @@
 package main
 
 import (
-	"arthur/app"
-	"arthur/utils/randomutils"
-	"arthur/utils/timeutils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -96,13 +93,6 @@ func Random() int {
 	return xx[ii] * yy[jj] * zz[kk]
 }
 
-type Type int16
-
-const (
-	C Type = 3
-	D Type = 4
-)
-
 func xxx(f func()) {
 	f()
 }
@@ -120,11 +110,10 @@ func trimUnUsedFunc() {
 	ceil(111)
 	chanWithContext()
 	compQAndBSort()
-	Contain(1, []int{1, 2, 3})
+	_, _ = Contain(1, []int{1, 2, 3})
 	deferCall()
 	divide2([]int{1, 2, 3})
 	formatTime()
-	gen3Options([3]int16{1, 2, 3})
 	genRandTestStructList()
 	hex()
 	king([][2]int{{1, 2}}, 1)
@@ -141,9 +130,11 @@ func trimUnUsedFunc() {
 	printY(ab)
 	print1(111)
 	qsort1([]int{1, 2, 4, 3, 5})
+	Random()
 	recursiveWithTail(10, 0, make(chan int))
 	returnInt(111)
 	round(0.111)
+	selectDrop()
 	sliceSeparate()
 	sortTwice()
 	step(2)
@@ -157,7 +148,6 @@ func trimUnUsedFunc() {
 	testGbq()
 	testGenSlice()
 	testGoroutine(make(chan int))
-	testGetTimeMinute()
 	testGoQsort()
 	testInterface()
 	testList([]int{0})
@@ -607,79 +597,6 @@ func recursiveWithTail(num, mid int, result chan int) {
 		result <- mid
 	}
 	go recursiveWithTail(num-1, mid, result)
-}
-
-type option [3]int16
-
-func (op option) equal(another option) bool {
-	return op[0] == another[0] && op[1] == another[1] && op[2] == another[2]
-}
-
-// 输入当前状态值 返回三个随机选项
-func gen3Options(status [3]int16) (options [3]option, trueIndex int) {
-	trueOptionLowerLimit := int16(1)
-	trueOptionUpperLimit := int16(9)
-	absUpperLimit := int16(3)
-	// 计算正确答案范围
-	// X ∈ [1-a,9-a] 0<ABS(X)<=3
-	var trueOption option
-	for i, s := range status { // 根据当前状态值计算正确选项
-		var trueLower, trueUpper = trueOptionLowerLimit - s, trueOptionUpperLimit - s
-		if trueLower < -absUpperLimit {
-			trueLower = absUpperLimit
-		}
-		if trueUpper > absUpperLimit {
-			trueUpper = absUpperLimit
-		}
-		num := 0
-		for num == 0 { // 获取一个非0的正确值
-			num = randomutils.RandomInt(int(trueLower), int(trueUpper))
-		}
-		trueOption[i] = int16(num)
-	}
-	// 随机正确选项的位置
-	trueIndex = randomutils.RandomInt(0, 2)
-	options[trueIndex] = trueOption
-	// 计算其余两个选项
-	for i := range options {
-		if i == trueIndex { // 跳过已生成的正确选项
-			continue
-		}
-		for { // 随机生成与已有选项不同的新选项
-			var (
-				equal = false
-				op    option
-			)
-			for j := range op {
-				num := 0
-				for num == 0 { // 获取一个非0的正确值
-					num = randomutils.RandomInt(int(-absUpperLimit), int(absUpperLimit))
-				}
-				op[j] = int16(num)
-			}
-			for j := range options {
-				if op.equal(options[j]) { // 相等
-					equal = true
-				}
-			}
-			if equal == false { // 与已有选项不等
-				options[i] = op
-				break
-			}
-		}
-	}
-	return
-}
-
-func testGetTimeMinute() {
-	app.TestInit()
-	defer app.Close()
-	now := time.Now()
-	nowMinute := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, now.Location())
-	nowMinute2 := timeutils.SetTime(now.Unix(), now.Hour(), now.Minute(), 0)
-	fmt.Println(now)
-	fmt.Println(nowMinute)
-	fmt.Println(time.Unix(nowMinute2, 0))
 }
 
 func testLog() *string {
