@@ -28,3 +28,12 @@ func TestCopyMap(t *testing.T) {
 	delete(m2, "1")
 	fmt.Println(m1)
 }
+
+func TestFuncMap(t *testing.T) {
+	f := func(m map[int]bool) {
+		delete(m, 1)
+	}
+	m := map[int]bool{1: true}
+	f(m)
+	fmt.Println(m)
+}
