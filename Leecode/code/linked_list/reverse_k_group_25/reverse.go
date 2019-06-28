@@ -85,3 +85,26 @@ func reverseWithTail(head, tail *ListNode, k int, first bool) *ListNode {
 		return reverseWithTail(head, thisTail, k, false)
 	}
 }
+
+// AC
+func reverseKGroup(head *ListNode, k int) *ListNode {
+	// check
+	cur := head
+	for i := 0; i < k; i++ {
+		if cur == nil {
+			return head
+		}
+		cur = cur.Next
+	}
+	tail := head
+	mid := head
+	cur = head.Next
+	for i := 0; i < k-1; i++ {
+		tmp := cur.Next
+		cur.Next = mid
+		mid = cur
+		cur = tmp
+	}
+	tail.Next = reverseKGroup(cur, k)
+	return mid
+}

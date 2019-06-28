@@ -10,11 +10,20 @@ type ListNode struct {
 	Next *ListNode
 }
 
-func NewList(v int) *ListNode {
-	return &ListNode{
-		Val:  v,
-		Next: nil,
+func NewList(values ...int) *ListNode {
+	head := &ListNode{}
+	cur := head
+	if len(values) == 0 {
+		return head
 	}
+	for _, v := range values {
+		cur.Next = &ListNode{
+			Val:  v,
+			Next: nil,
+		}
+		cur = cur.Next
+	}
+	return head.Next
 }
 
 func (h *ListNode) Print() {

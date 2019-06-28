@@ -1,7 +1,7 @@
 // Time        : 2019/01/24
 // Description :
 
-package valid_parentheses
+package valid_20
 
 //Given a string containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.
 //

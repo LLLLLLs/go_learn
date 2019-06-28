@@ -25,3 +25,8 @@ func TestReverse2(t *testing.T) {
 	l = reverseKGroup2(l, 3)
 	l.Print()
 }
+
+func TestReverse(t *testing.T) {
+	l := base.NewList(1, 2)
+	reverseKGroup(l, 2).Print()
+}
