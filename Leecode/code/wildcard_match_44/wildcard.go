@@ -1,7 +1,7 @@
 // Time        : 2019/01/24
 // Description :
 
-package wildcard_match
+package wildcard_match_44
 
 //Given an input string (s) and a pattern (p), implement wildcard pattern matching with support for '?' and '*'.
 //
@@ -50,5 +50,44 @@ package wildcard_match
 //Output: false
 
 func isMatch(s string, p string) bool {
+	if p == "*" {
+		return true
+	}
+	if remain(p) > len(s) {
+		return false
+	}
+	var i = 0
+	for ; i < len(p); i++ {
+		if p[i] == '?' {
+			continue
+		}
+		if p[i] == '*' {
+			if len(s)-i < remain(p[i+1:]) {
+				return false
+			}
+			for j := len(s) - i; j >= 0; j-- {
+				if isMatch(s[i+j:], p[i+1:]) {
+					return true
+				}
+			}
+			return false
+		}
+		if i >= len(s) || p[i] != s[i] {
+			return false
+		}
+	}
+	if i == len(s) {
+		return true
+	}
+	return false
+}
 
+func remain(p string) int {
+	var remain = 0
+	for i := range p {
+		if p[i] != '*' {
+			remain++
+		}
+	}
+	return remain
 }
