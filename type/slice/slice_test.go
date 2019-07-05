@@ -5,6 +5,7 @@ package slice
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -23,4 +24,20 @@ func TestSort(t *testing.T) {
 	for i := range list {
 		fmt.Println(init[i], "==>", list[i])
 	}
+}
+
+type SliceStruct struct {
+	list []int
+}
+
+func (ss SliceStruct) List() []int {
+	return ss.list
+}
+
+func TestList(t *testing.T) {
+	ss := SliceStruct{list: []int{1, 2, 3}}
+	list := ss.List()
+	list[1] = 0
+	fmt.Println(ss.List())
+	fmt.Println(reflect.ValueOf(ss.list).Type())
 }
