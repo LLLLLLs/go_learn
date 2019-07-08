@@ -1,7 +1,7 @@
 // Time        : 2019/01/21
 // Description :
 
-package my_hash
+package myhash
 
 const size_default = 2
 
