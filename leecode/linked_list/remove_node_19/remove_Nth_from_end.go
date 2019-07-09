@@ -4,7 +4,7 @@
 package remove_node_19
 
 import (
-	. "go_learn/leecode/code/linked_list/base"
+	"go_learn/leecode/linked_list/base"
 )
 
 // Given linked list: 1->2->3->4->5, and n = 2.
@@ -21,8 +21,8 @@ import (
  * }
  */
 
-func RemoveNthFromEnd(head *ListNode, n int) *ListNode {
-	lm := make(map[int]*ListNode)
+func RemoveNthFromEnd(head *base.ListNode, n int) *base.ListNode {
+	lm := make(map[int]*base.ListNode)
 	index := 0
 	ll := head
 	for ll != nil {

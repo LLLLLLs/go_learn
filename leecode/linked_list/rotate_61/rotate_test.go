@@ -4,7 +4,7 @@
 package rotate_61
 
 import (
-	"go_learn/leecode/code/linked_list/base"
+	"go_learn/leecode/linked_list/base"
 	"testing"
 )
 

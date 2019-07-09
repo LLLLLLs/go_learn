@@ -4,7 +4,7 @@
 package rotate_61
 
 import (
-	. "go_learn/leecode/code/linked_list/base"
+	"go_learn/leecode/linked_list/base"
 )
 
 // Given a linked list, rotate the list to the right by k places, where k is non-negative.
@@ -26,7 +26,7 @@ import (
 // rotate 3 steps to the right: 0->1->2->NULL
 // rotate 4 steps to the right: 2->0->1->NULL
 
-func rotateRight(head *ListNode, k int) *ListNode {
+func rotateRight(head *base.ListNode, k int) *base.ListNode {
 	if head == nil {
 		return head
 	}
@@ -40,7 +40,7 @@ func rotateRight(head *ListNode, k int) *ListNode {
 		return head
 	}
 	tmp := head
-	var pre *ListNode
+	var pre *base.ListNode
 	for i := 0; i < length-k%length; i++ {
 		pre = tmp
 		tmp = tmp.Next

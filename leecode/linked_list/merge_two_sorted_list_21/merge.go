@@ -4,7 +4,7 @@
 package merge_two_sorted_list_21
 
 import (
-	. "go_learn/leecode/code/linked_list/base"
+	"go_learn/leecode/linked_list/base"
 )
 
 // Merge two sorted linked lists and return it as a new list. The new list should be made by splicing together the nodes of the first two lists.
@@ -16,8 +16,8 @@ import (
 // Output: 1->1->2->3->4->4
 
 // AC
-func merge(l1, l2 *ListNode) *ListNode {
-	var head = NewList(0)
+func merge(l1, l2 *base.ListNode) *base.ListNode {
+	var head = base.NewList(0)
 	var cur = head
 	for l1 != nil && l2 != nil {
 		if l1.Val <= l2.Val {

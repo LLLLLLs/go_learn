@@ -4,7 +4,7 @@
 package reverse_k_group_25
 
 import (
-	. "go_learn/leecode/code/linked_list/base"
+	"go_learn/leecode/linked_list/base"
 )
 
 //Given a linked list, reverse the nodes of a linked list k at a time and return its modified list.
@@ -24,7 +24,7 @@ import (
 //Only constant extra memory is allowed.
 //You may not alter the values in the list's nodes, only nodes itself may be changed.
 
-func reverseKGroup1(head *ListNode, k int) *ListNode {
+func reverseKGroup1(head *base.ListNode, k int) *base.ListNode {
 	if head == nil || k <= 1 {
 		return head
 	}
@@ -50,13 +50,13 @@ func reverseKGroup1(head *ListNode, k int) *ListNode {
 }
 
 // 递归尾调用
-func reverseKGroup2(head *ListNode, k int) *ListNode {
-	list := &ListNode{}
+func reverseKGroup2(head *base.ListNode, k int) *base.ListNode {
+	list := &base.ListNode{}
 	list.Next = head
 	return reverseWithTail(list, list, k, true)
 }
 
-func reverseWithTail(head, tail *ListNode, k int, first bool) *ListNode {
+func reverseWithTail(head, tail *base.ListNode, k int, first bool) *base.ListNode {
 	mid := tail.Next
 	if mid == nil || k <= 1 {
 		return head
@@ -87,7 +87,7 @@ func reverseWithTail(head, tail *ListNode, k int, first bool) *ListNode {
 }
 
 // AC
-func reverseKGroup(head *ListNode, k int) *ListNode {
+func reverseKGroup(head *base.ListNode, k int) *base.ListNode {
 	// check
 	cur := head
 	for i := 0; i < k; i++ {

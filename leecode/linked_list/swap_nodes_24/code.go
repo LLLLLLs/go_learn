@@ -4,7 +4,7 @@
 package swap_nodes_24
 
 import (
-	. "go_learn/leecode/code/linked_list/base"
+	"go_learn/leecode/linked_list/base"
 )
 
 // Given a linked list, swap every two adjacent nodes and return its head.
@@ -16,7 +16,7 @@ import (
 // Given 1->2->3->4, you should return the list as 2->1->4->3.
 
 // AC
-func swapPairs(head *ListNode) *ListNode {
+func swapPairs(head *base.ListNode) *base.ListNode {
 	if head == nil || head.Next == nil {
 		return head
 	}

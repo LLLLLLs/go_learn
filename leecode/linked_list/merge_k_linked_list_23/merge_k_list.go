@@ -4,7 +4,7 @@
 package merge_k_linked_list_23
 
 import (
-	. "go_learn/leecode/code/linked_list/base"
+	"go_learn/leecode/linked_list/base"
 	"sort"
 )
 
@@ -20,12 +20,12 @@ import (
 //]
 //Output: 1->1->2->3->4->4->5->6
 
-func mergeKLists1(lists []*ListNode) *ListNode {
-	var head = &ListNode{Val: 1, Next: nil}
+func mergeKLists1(lists []*base.ListNode) *base.ListNode {
+	var head = &base.ListNode{Val: 1, Next: nil}
 	var now = head
 	var clear = false
 	for !clear {
-		var n *ListNode
+		var n *base.ListNode
 		var index = 0
 		clear = true
 		for i, node := range lists {
@@ -49,12 +49,12 @@ func mergeKLists1(lists []*ListNode) *ListNode {
 }
 
 // 使用协程每次两两分组合并
-func mergeKLists2_1(lists []*ListNode) *ListNode {
+func mergeKLists2_1(lists []*base.ListNode) *base.ListNode {
 	if len(lists) == 0 {
 		return nil
 	}
-	f := func(l1, l2 *ListNode, c chan *ListNode) {
-		head := &ListNode{Val: 1, Next: nil}
+	f := func(l1, l2 *base.ListNode, c chan *base.ListNode) {
+		head := &base.ListNode{Val: 1, Next: nil}
 		now := head
 		for l1 != nil && l2 != nil {
 			if l1.Val < l2.Val {
@@ -75,7 +75,7 @@ func mergeKLists2_1(lists []*ListNode) *ListNode {
 	}
 	for len(lists) > 1 {
 		group := len(lists) / 2
-		cs := make(chan *ListNode, group)
+		cs := make(chan *base.ListNode, group)
 		for i := 0; i < group; i++ {
 			go f(lists[i*2], lists[i*2+1], cs)
 		}
@@ -88,12 +88,12 @@ func mergeKLists2_1(lists []*ListNode) *ListNode {
 }
 
 // 不使用协程
-func mergeKLists2_2(lists []*ListNode) *ListNode {
+func mergeKLists2_2(lists []*base.ListNode) *base.ListNode {
 	if len(lists) == 0 {
 		return nil
 	}
-	f := func(l1, l2 *ListNode) *ListNode {
-		head := &ListNode{Val: 1, Next: nil}
+	f := func(l1, l2 *base.ListNode) *base.ListNode {
+		head := &base.ListNode{Val: 1, Next: nil}
 		now := head
 		for l1 != nil && l2 != nil {
 			if l1.Val < l2.Val {
@@ -122,7 +122,7 @@ func mergeKLists2_2(lists []*ListNode) *ListNode {
 }
 
 // 第三方算法
-func mergeKLists3(lists []*ListNode) *ListNode {
+func mergeKLists3(lists []*base.ListNode) *base.ListNode {
 	heap := NewMinHeap(len(lists))
 	for _, v := range lists {
 		heap.Insert(v)
@@ -151,11 +151,11 @@ func mergeKLists3(lists []*ListNode) *ListNode {
 }
 
 type MinHeap struct {
-	buffer []*ListNode
+	buffer []*base.ListNode
 }
 
 func NewMinHeap(capacity int) *MinHeap {
-	return &MinHeap{buffer: make([]*ListNode, 0, capacity)}
+	return &MinHeap{buffer: make([]*base.ListNode, 0, capacity)}
 }
 
 // to get index of parent of node at index i
@@ -189,7 +189,7 @@ func (h *MinHeap) heapify(i int) {
 	}
 }
 
-func (h *MinHeap) Insert(k *ListNode) {
+func (h *MinHeap) Insert(k *base.ListNode) {
 	if k == nil {
 		return
 	}
@@ -201,7 +201,7 @@ func (h *MinHeap) Insert(k *ListNode) {
 	}
 }
 
-func (h *MinHeap) Pop() *ListNode {
+func (h *MinHeap) Pop() *base.ListNode {
 	heapSize := h.Size()
 	if heapSize == 0 {
 		return nil
@@ -222,7 +222,7 @@ func (h *MinHeap) Size() int {
 }
 
 // 算法4
-func mergeKLists4(lists []*ListNode) *ListNode {
+func mergeKLists4(lists []*base.ListNode) *base.ListNode {
 	if len(lists) == 0 {
 		return nil
 	}
@@ -240,17 +240,17 @@ func mergeKLists4(lists []*ListNode) *ListNode {
 // Queue implementation
 type Queue interface {
 	Length() int
-	Push(node *ListNode)
-	Pop() *ListNode
+	Push(node *base.ListNode)
+	Pop() *base.ListNode
 }
 
 type que struct {
-	elements []*ListNode
+	elements []*base.ListNode
 }
 
-func NewQueue(lists []*ListNode) Queue {
+func NewQueue(lists []*base.ListNode) Queue {
 	if lists == nil {
-		lists = make([]*ListNode, 0)
+		lists = make([]*base.ListNode, 0)
 	}
 
 	return &que{
@@ -262,11 +262,11 @@ func (q *que) Length() int {
 	return len(q.elements)
 }
 
-func (q *que) Push(node *ListNode) {
+func (q *que) Push(node *base.ListNode) {
 	q.elements = append(q.elements, node)
 }
 
-func (q *que) Pop() *ListNode {
+func (q *que) Pop() *base.ListNode {
 	length := len(q.elements)
 	if length == 0 {
 		panic("queue is empty.")
@@ -277,7 +277,7 @@ func (q *que) Pop() *ListNode {
 }
 
 // Merge 2 lists
-func mergeTwoLists(l1 *ListNode, l2 *ListNode) *ListNode {
+func mergeTwoLists(l1 *base.ListNode, l2 *base.ListNode) *base.ListNode {
 	if l1 == nil {
 		return l2
 	}
@@ -286,7 +286,7 @@ func mergeTwoLists(l1 *ListNode, l2 *ListNode) *ListNode {
 		return l1
 	}
 
-	head := ListNode{}
+	head := base.ListNode{}
 	prev := &head
 
 	for l1 != nil && l2 != nil {
@@ -312,7 +312,7 @@ func mergeTwoLists(l1 *ListNode, l2 *ListNode) *ListNode {
 }
 
 // 算法5 用slice排序
-func mergeKLists5(lists []*ListNode) *ListNode {
+func mergeKLists5(lists []*base.ListNode) *base.ListNode {
 	l := make([]int, 0)
 	for _, node := range lists {
 		for node != nil {
@@ -321,10 +321,10 @@ func mergeKLists5(lists []*ListNode) *ListNode {
 		}
 	}
 	sort.Ints(l)
-	head := &ListNode{}
+	head := &base.ListNode{}
 	now := head
 	for _, val := range l {
-		now.Next = &ListNode{Val: val}
+		now.Next = &base.ListNode{Val: val}
 		now = now.Next
 	}
 	return head.Next
