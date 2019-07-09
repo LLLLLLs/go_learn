@@ -1,38 +1,35 @@
-/*
-Author      : lls
-Time        : 2018/10/30
-Description :
-*/
+// Time        : 2019/07/09
+// Description : 瞎比实现lru内存缓存
 
-package code
+package lru
 
 type DoubleNode struct {
-	key   int
-	value int
+	key   interface{}
+	value interface{}
 	pre   *DoubleNode
 	next  *DoubleNode
 }
 
-type LRUCache struct {
-	cache map[int]*DoubleNode
+type Cache struct {
+	cache map[interface{}]*DoubleNode
 	head  *DoubleNode
 	tail  *DoubleNode
 	cap   int
 }
 
-func NewLRUCache(n int) *LRUCache {
-	return &LRUCache{
-		cache: make(map[int]*DoubleNode),
+func NewLRUCache(n int) *Cache {
+	return &Cache{
+		cache: make(map[interface{}]*DoubleNode),
 		head:  nil,
 		tail:  nil,
 		cap:   n,
 	}
 }
 
-func (c *LRUCache) Get(key int) int {
+func (c *Cache) Get(key interface{}) interface{} {
 	node, ok := c.cache[key]
 	if !ok {
-		return -1
+		return nil
 	}
 	if node != c.head { // node 不是 head
 		node.pre.next = node.next
@@ -48,7 +45,7 @@ func (c *LRUCache) Get(key int) int {
 	return node.value
 }
 
-func (c *LRUCache) Put(key, value int) {
+func (c *Cache) Put(key, value interface{}) {
 	node, ok := c.cache[key]
 	if ok { // 该node已存在
 		if node != c.head {

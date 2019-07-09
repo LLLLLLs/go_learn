@@ -1,5 +1,5 @@
 // Time        : 2019/07/08
-// Description :
+// Description : 测试方法receiver对性能影响
 
 package _struct
 
