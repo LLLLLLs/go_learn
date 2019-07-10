@@ -61,3 +61,19 @@ func searchRecursion(nums []int, target, i, j int) []int {
 		return searchRecursion(nums[midIndex:], target, midIndex+i, j)
 	}
 }
+
+func searchRange2(nums []int, target int) []int {
+	var result = []int{-1, -1}
+	for i := range nums {
+		if nums[i] > target {
+			break
+		}
+		if nums[i] == target {
+			if result[0] == -1 {
+				result[0] = i
+			}
+			result[1] = i
+		}
+	}
+	return result
+}
