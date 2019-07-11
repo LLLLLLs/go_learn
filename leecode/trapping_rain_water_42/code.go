@@ -52,11 +52,10 @@ func trap(height []int) int {
 	s := newStack()
 	var result int
 	min := func(a, b int) int {
-		m := a
-		if b < a {
-			m = b
+		if a < b {
+			return a
 		}
-		return m
+		return b
 	}
 	for i := range height {
 		for !s.empty() && height[s.top()] < height[i] {

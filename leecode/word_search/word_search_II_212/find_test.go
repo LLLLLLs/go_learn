@@ -17,4 +17,17 @@ func TestFind(t *testing.T) {
 	}
 	words := []string{"oath", "pea", "eat", "rain"}
 	fmt.Println(findWords(board, words))
+
+	board = [][]byte{
+		{'a', 'b'},
+		{'a', 'a'},
+	}
+	words = []string{"aba", "baa", "bab", "aaab", "aaa", "aaaa", "aaba"}
+	fmt.Println(findWords(board, words))
+
+	board = [][]byte{
+		{'a', 'b'},
+	}
+	words = []string{"a", "b"}
+	fmt.Println(findWords(board, words))
 }

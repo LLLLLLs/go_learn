@@ -29,29 +29,29 @@ package word_search_II_212
 //	for i := range path {
 //		path[i] = make([]bool, len(board[i]))
 //	}
-//	var result = make([]string, 0)
+//	var remain = make([]string, len(words))
+//	copy(remain, words)
 //	for i := 0; i < len(board); i++ {
 //		for j := 0; j < len(board[i]); j++ {
 //			wordM := make(map[string]struct{})
-//			for k := 0; k < len(words); k++ {
-//				if words[k][0] == board[i][j] {
-//					wordM[words[k]] = struct{}{}
+//			for k := 0; k < len(remain); k++ {
+//				if remain[k][0] == board[i][j] {
+//					wordM[remain[k]] = struct{}{}
 //				}
 //			}
 //			path[i][j] = true
-//			rtn := backtrack(board, path, i, j, 1, wordM)
+//			backtrack(board, path, i, j, 1, wordM, &remain)
 //			path[i][j] = false
-//			for k := 0; k < len(words); {
-//				if _, ok := rtn[words[k]]; ok {
-//					result = append(result, words[k])
-//					words = append(words[:k], words[k+1:]...)
-//				} else {
-//					k++
-//				}
-//			}
-//			if len(words) == 0 {
-//				return result
-//			}
+//		}
+//	}
+//	var result = make([]string, len(words)-len(remain))
+//	var j, k = 0, 0
+//	for i := range words {
+//		if j == len(remain) || words[i] != remain[j] {
+//			result[k] = words[i]
+//			k++
+//		} else {
+//			j++
 //		}
 //	}
 //	return result
@@ -60,13 +60,15 @@ package word_search_II_212
 //var di = []int{0, 1, 0, -1}
 //var dj = []int{1, 0, -1, 0}
 //
-//func backtrack(board [][]byte, path [][]bool, i, j, index int, words map[string]struct{}) (result map[string]struct{}) {
-//	result = make(map[string]struct{}, 0)
-//	for word := range words {
-//		if index == len(word) {
-//			result[word] = struct{}{}
+//func backtrack(board [][]byte, path [][]bool, i, j, index int, words map[string]struct{}, remain *[]string) {
+//	for k := 0; k < len(*remain); {
+//		word := (*remain)[k]
+//		if _, ok := words[word]; ok && index == len(word) {
 //			delete(words, word)
+//			*remain = append((*remain)[:k], (*remain)[k+1:]...)
+//			continue
 //		}
+//		k++
 //	}
 //	if len(words) == 0 {
 //		return
@@ -75,19 +77,16 @@ package word_search_II_212
 //		ni, nj := i+di[k], j+dj[k]
 //		if ni >= 0 && nj >= 0 && ni < len(board) && nj < len(board[ni]) && !path[ni][nj] {
 //			tmp := make(map[string]struct{})
-//			for word := range words {
-//				if board[ni][nj] == word[index] {
+//			for i := range *remain {
+//				word := (*remain)[i]
+//				if _, ok := words[word]; ok && board[ni][nj] == word[index] {
 //					tmp[word] = struct{}{}
 //				}
 //			}
 //			path[ni][nj] = true
-//			rtn := backtrack(board, path, ni, nj, index+1, tmp)
+//			backtrack(board, path, ni, nj, index+1, tmp, remain)
 //			path[ni][nj] = false
-//			for word := range rtn {
-//				result[word] = struct{}{}
-//				delete(words, word)
-//			}
-//			if len(words) == 0 {
+//			if len(*remain) == 0 {
 //				return
 //			}
 //		}
