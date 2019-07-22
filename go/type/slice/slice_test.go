@@ -41,3 +41,17 @@ func TestList(t *testing.T) {
 	fmt.Println(ss.List())
 	fmt.Println(reflect.ValueOf(ss.list).Type())
 }
+
+var ri RankInfo
+
+func TestMakeList(t *testing.T) {
+	elem := reflect.ValueOf(ri)
+	typ := elem.Type()
+	ss := reflect.MakeSlice(reflect.SliceOf(typ), 10, 20)
+	fmt.Println(ss.Type().Name())
+	fmt.Println(ss.Interface())
+}
+
+func TestSameSlice(t *testing.T) {
+	fmt.Println([3]int{1, 2, 3} == [3]int{1, 2, 3})
+}
