@@ -225,13 +225,11 @@ func chanWithContext() {
 	count := 5
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*4)
 	defer cancel()
-	var loop = true
-	for loop {
+	for {
 		select {
 		case recv := <-ch:
 			fmt.Println("chanel close,recv:", recv)
-			loop = false
-			break
+			goto outLoop
 		case <-ticker.C:
 			fmt.Println("one second pass")
 			count--
@@ -240,9 +238,10 @@ func chanWithContext() {
 			}
 		case <-ctx.Done():
 			fmt.Println("ctx time out")
-			loop = false
+			goto outLoop
 		}
 	}
+outLoop:
 	fmt.Println("recv:", <-ctx.Done())
 }
 
