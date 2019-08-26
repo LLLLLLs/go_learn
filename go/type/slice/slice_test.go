@@ -55,3 +55,15 @@ func TestMakeList(t *testing.T) {
 func TestSameSlice(t *testing.T) {
 	fmt.Println([3]int{1, 2, 3} == [3]int{1, 2, 3})
 }
+
+func TestModifySlice(t *testing.T) {
+	nums := [20]int{}
+	for i := range nums {
+		nums[i] = i
+	}
+	slice := nums[5:10]
+	s2 := make([]int, 5)
+	slice = append(slice, s2...)
+	fmt.Println(slice)
+	fmt.Println(nums)
+}

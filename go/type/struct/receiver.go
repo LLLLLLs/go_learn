@@ -3,6 +3,8 @@
 
 package _struct
 
+import "fmt"
+
 type Type1 struct {
 	a int
 	b int
@@ -30,6 +32,10 @@ func (t Type1) Sum() float64 {
 	return t.c + float64(t.a) + float64(t.b)
 }
 
+func (t Type1) Ptr() {
+	fmt.Printf("%p\n", &t)
+}
+
 type Type2 struct {
 	a int
 	b int
@@ -55,4 +61,8 @@ func (t *Type2) D() string {
 
 func (t *Type2) Sum() float64 {
 	return t.c + float64(t.a) + float64(t.b)
+}
+
+func (t *Type2) Ptr() {
+	fmt.Printf("%p\n", t)
 }

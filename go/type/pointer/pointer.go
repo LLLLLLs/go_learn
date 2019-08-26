@@ -37,3 +37,39 @@ func unsafe2Uint() {
 	uintPtr = uintptr(unsafePtr)
 	fmt.Printf("%b\t%o\t%d\t%x\n", uintPtr, uintPtr, uintPtr, uintPtr)
 }
+
+type IA interface {
+	Hello()
+}
+
+type IB interface {
+	World()
+}
+
+type IC interface {
+	Say()
+}
+
+type A struct {
+	a int
+	b int
+}
+
+func (*A) Hello() {}
+
+type B struct{}
+
+func (*B) World() {}
+
+type C struct {
+	c int
+	d string
+}
+
+func (*C) Say() {}
+
+type D struct {
+	IA
+	IB
+	//IC
+}

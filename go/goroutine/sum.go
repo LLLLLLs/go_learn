@@ -1,10 +1,7 @@
-/*
-Author      : lls
-Time        : 2018/10/08
-Description :
-*/
+// Time        : 2019/08/23
+// Description :
 
-package main
+package goroutine
 
 import (
 	"fmt"
@@ -16,12 +13,7 @@ var (
 	sum3, sum5, sum15 = make(chan int64, 1), make(chan int64, 1), make(chan int64, 1)
 )
 
-func main() {
-	goroutine()
-	nonGoroutine()
-}
-
-func goroutine() {
+func sumWithGoroutine() {
 	start := time.Now()
 	go Sum3()
 	go Sum5()
@@ -34,7 +26,7 @@ func goroutine() {
 	fmt.Println(time.Now().Sub(start))
 }
 
-func nonGoroutine() {
+func sumWithoutGoroutine() {
 	start := time.Now()
 	x3 := Sum3()
 	x5 := Sum5()

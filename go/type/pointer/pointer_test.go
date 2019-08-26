@@ -4,6 +4,7 @@
 package pointer
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -39,4 +40,23 @@ func BenchmarkReflectPtr(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = reflect.ValueOf(&ts).Pointer()
 	}
+}
+
+func TestPointHeadOrTail(t *testing.T) {
+	c := D{
+		IA: &A{},
+		IB: &B{},
+		//IC: &C{},
+	}
+	value := reflect.ValueOf(c)
+	for i := 0; i < value.NumField(); i++ {
+		fmt.Println(value.Field(i).Type().Name(), reflect.ValueOf(value.Field(i).Interface()).Pointer())
+	}
+	fmt.Println(6704720 * 16 / 10)
+	fmt.Println(reflect.ValueOf(c.IA).Pointer())
+	fmt.Println(reflect.ValueOf(c.IB).Pointer())
+	//fmt.Println(reflect.ValueOf(c.IC).Pointer())
+	a := struct{}{}
+	b := struct{}{}
+	fmt.Println(a == b)
 }

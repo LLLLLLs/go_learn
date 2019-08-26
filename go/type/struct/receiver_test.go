@@ -3,7 +3,10 @@
 
 package _struct
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func BenchmarkValue(b *testing.B) {
 	str := ""
@@ -45,4 +48,13 @@ func BenchmarkPointer(b *testing.B) {
 		s.D()
 		s.Sum()
 	}
+}
+
+func TestReceiverPtr(t *testing.T) {
+	t1 := Type1{}
+	t2 := Type2{}
+	fmt.Printf("%p\n", &t1)
+	t1.Ptr()
+	fmt.Printf("%p\n", &t2)
+	t2.Ptr()
 }
