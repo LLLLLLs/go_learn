@@ -5,7 +5,7 @@ package myhash
 
 import (
 	"fmt"
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

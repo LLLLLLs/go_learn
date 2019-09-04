@@ -5,7 +5,7 @@ package permutations_II_47
 
 import (
 	"fmt"
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

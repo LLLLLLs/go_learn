@@ -3,7 +3,7 @@
 
 package restore_from_pre_inorder_105
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given preorder and inorder traversal of a tree, construct the binary tree.
 //

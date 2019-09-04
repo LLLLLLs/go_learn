@@ -6,7 +6,7 @@ package parseurl
 import (
 	"bytes"
 	"github.com/PuerkitoBio/goquery"
-	"go_learn/utils"
+	"golearn/utils"
 	"strings"
 )
 

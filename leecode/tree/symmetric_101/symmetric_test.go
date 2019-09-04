@@ -5,7 +5,7 @@ package symmetric_101
 
 import (
 	"fmt"
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"testing"
 )
 

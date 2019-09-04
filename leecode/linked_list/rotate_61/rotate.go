@@ -4,7 +4,7 @@
 package rotate_61
 
 import (
-	"go_learn/leecode/linked_list/base"
+	"golearn/leecode/linked_list/base"
 )
 
 // Given a linked list, rotate the list to the right by k places, where k is non-negative.

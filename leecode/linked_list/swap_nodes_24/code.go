@@ -4,7 +4,7 @@
 package swap_nodes_24
 
 import (
-	"go_learn/leecode/linked_list/base"
+	"golearn/leecode/linked_list/base"
 )
 
 // Given a linked list, swap every two adjacent nodes and return its head.

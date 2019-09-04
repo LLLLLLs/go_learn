@@ -3,7 +3,7 @@
 
 package balanced_binary_tree_judge_110
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree, determine if it is height-balanced.
 //

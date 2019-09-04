@@ -3,7 +3,7 @@
 
 package binary_tree_level_order_traversal_102
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree, return the level order traversal of its nodes' values. (ie, from left to right, level by level).
 //

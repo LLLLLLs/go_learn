@@ -4,7 +4,7 @@
 package surrounded_regions_130
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

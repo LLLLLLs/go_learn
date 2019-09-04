@@ -10,3 +10,14 @@ func MarshalToString(v interface{}) string {
 	OkOrPanic(err)
 	return string(b)
 }
+
+func Marshal(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	OkOrPanic(err)
+	return b
+}
+
+func Unmarshal(data []byte, v interface{}) {
+	err := json.Unmarshal(data, v)
+	OkOrPanic(err)
+}

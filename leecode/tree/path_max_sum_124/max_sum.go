@@ -4,7 +4,7 @@
 package path_max_sum_124
 
 import (
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"math"
 )
 

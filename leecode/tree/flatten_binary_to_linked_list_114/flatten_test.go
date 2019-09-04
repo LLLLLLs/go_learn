@@ -5,7 +5,7 @@ package flatten_binary_to_linked_list_114
 
 import (
 	"fmt"
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"testing"
 )
 

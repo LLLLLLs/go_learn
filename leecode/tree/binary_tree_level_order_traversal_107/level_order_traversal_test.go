@@ -5,7 +5,7 @@ package binary_tree_level_order_traversal_107
 
 import (
 	"fmt"
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"testing"
 )
 

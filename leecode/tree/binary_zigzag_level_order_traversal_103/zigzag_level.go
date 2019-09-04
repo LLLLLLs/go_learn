@@ -3,7 +3,7 @@
 
 package binary_zigzag_level_order_traversal_103
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree, return the zigzag level order traversal of its nodes' values.
 // (ie, from left to right, then right to left for the next level and alternate between).

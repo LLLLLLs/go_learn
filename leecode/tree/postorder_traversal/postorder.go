@@ -3,7 +3,7 @@
 
 package postorder_traversal
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // 后序遍历 左右中
 func postorderTraversal(root *TreeNode) []int {

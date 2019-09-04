@@ -3,7 +3,7 @@
 
 package depth_104
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree, find its maximum depth.
 //

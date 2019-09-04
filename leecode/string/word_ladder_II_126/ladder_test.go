@@ -4,7 +4,7 @@
 package word_ladder_II_126
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

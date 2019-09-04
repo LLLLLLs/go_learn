@@ -4,7 +4,7 @@
 package validate_binary_search_98
 
 import (
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"math"
 )
 

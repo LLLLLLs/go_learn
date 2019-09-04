@@ -3,7 +3,7 @@
 
 package convert_sorted_array_108
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given an array where elements are sorted in ascending order, convert it to a height balanced BST.
 //

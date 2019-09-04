@@ -4,7 +4,7 @@
 package group_anagrams49
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

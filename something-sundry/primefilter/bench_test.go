@@ -4,7 +4,7 @@
 package primefilter
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

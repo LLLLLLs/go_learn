@@ -3,7 +3,7 @@
 
 package same_tree_100
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 //Given two binary trees, write a function to check if they are the same or not.
 //

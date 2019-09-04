@@ -5,7 +5,7 @@ package main
 
 import (
 	"github.com/gorilla/handlers"
-	"go_learn/utils"
+	"golearn/utils"
 	"io"
 	"net/http"
 	"os"

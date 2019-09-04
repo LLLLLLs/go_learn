@@ -3,7 +3,7 @@
 
 package sort_list_ologn_148
 
-import . "go_learn/leecode/linked_list/base"
+import . "golearn/leecode/linked_list/base"
 
 // Sort a linked list in O(n log n) time using constant space complexity.
 //

@@ -3,7 +3,7 @@
 
 package sum_root_to_leaf_129
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree containing digits from 0-9 only,
 // each root-to-leaf path could represent a number.

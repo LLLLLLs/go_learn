@@ -3,7 +3,7 @@
 
 package unique_binary_search_II_95
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 //Input: 3
 //Output:

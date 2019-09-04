@@ -5,7 +5,7 @@ package preorder_traversal_144
 
 import (
 	"fmt"
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"testing"
 )
 

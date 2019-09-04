@@ -3,7 +3,7 @@
 
 package postorder_traversal_iteratively_145
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree, return the postorder traversal of its nodes' values.
 //

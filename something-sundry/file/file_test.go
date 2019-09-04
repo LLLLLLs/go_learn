@@ -5,7 +5,7 @@ package file
 
 import (
 	"fmt"
-	"go_learn/utils"
+	"golearn/utils"
 	"os"
 	"testing"
 )

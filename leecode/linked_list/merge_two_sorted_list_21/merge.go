@@ -4,7 +4,7 @@
 package merge_two_sorted_list_21
 
 import (
-	"go_learn/leecode/linked_list/base"
+	"golearn/leecode/linked_list/base"
 )
 
 // Merge two sorted linked lists and return it as a new list. The new list should be made by splicing together the nodes of the first two lists.

@@ -3,7 +3,7 @@
 
 package cycle_II_142
 
-import . "go_learn/leecode/linked_list/base"
+import . "golearn/leecode/linked_list/base"
 
 // Given a linked list, return the node where the cycle begins. If there is no cycle, return null.
 //

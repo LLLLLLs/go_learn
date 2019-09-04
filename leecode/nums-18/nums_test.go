@@ -5,7 +5,7 @@ package nums_18
 
 import (
 	"fmt"
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

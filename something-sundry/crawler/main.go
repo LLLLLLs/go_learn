@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	"go_learn/something-sundry/crawler/parseurl"
+	"golearn/something-sundry/crawler/parseurl"
 )
 
 var url = "https://movie.douban.com/top250?start="

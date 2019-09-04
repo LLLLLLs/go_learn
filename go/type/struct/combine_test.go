@@ -5,7 +5,7 @@ package _struct
 
 import (
 	"fmt"
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

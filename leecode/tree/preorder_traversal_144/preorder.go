@@ -3,7 +3,7 @@
 
 package preorder_traversal_144
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 func preorderTraversal(root *TreeNode) []int {
 	io := make([]int, 0)

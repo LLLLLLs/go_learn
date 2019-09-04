@@ -4,7 +4,7 @@
 package remove_duplicates_I_83
 
 import (
-	. "go_learn/leecode/linked_list/base"
+	. "golearn/leecode/linked_list/base"
 )
 
 // Given a sorted linked list, delete all duplicates such that each element appear only once.

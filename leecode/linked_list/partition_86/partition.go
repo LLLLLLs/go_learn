@@ -3,7 +3,7 @@
 
 package partition_86
 
-import . "go_learn/leecode/linked_list/base"
+import . "golearn/leecode/linked_list/base"
 
 // Given a linked list and a value x,
 // partition it such that all nodes less than x come before nodes greater than or equal to x.

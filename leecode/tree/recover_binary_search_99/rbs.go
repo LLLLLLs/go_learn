@@ -4,7 +4,7 @@
 package recover_binary_search_99
 
 import (
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"math"
 )
 

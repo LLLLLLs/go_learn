@@ -3,7 +3,7 @@
 
 package flatten_binary_to_linked_list_114
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree, flatten it to a linked list in-place.
 //

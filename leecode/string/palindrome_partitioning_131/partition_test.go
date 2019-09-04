@@ -4,7 +4,7 @@
 package palindrome_partitioning_131
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

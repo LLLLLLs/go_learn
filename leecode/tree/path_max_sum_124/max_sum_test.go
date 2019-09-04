@@ -5,7 +5,7 @@ package path_max_sum_124
 
 import (
 	"fmt"
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/tree/base"
 	"testing"
 )
 

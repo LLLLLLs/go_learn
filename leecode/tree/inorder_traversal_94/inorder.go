@@ -3,7 +3,7 @@
 
 package inorder_traversal_94
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 func inorderTraversal(root *TreeNode) []int {
 	result := make([]int, 0)

@@ -4,8 +4,8 @@
 package convert_sorted_list_109
 
 import (
-	. "go_learn/leecode/linked_list/base"
-	. "go_learn/leecode/tree/base"
+	. "golearn/leecode/linked_list/base"
+	. "golearn/leecode/tree/base"
 )
 
 // Given a singly linked list where elements are sorted in ascending order, convert it to a height balanced BST.

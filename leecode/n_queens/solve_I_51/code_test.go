@@ -4,7 +4,7 @@
 package solve_I_51
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

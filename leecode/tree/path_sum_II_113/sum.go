@@ -3,7 +3,7 @@
 
 package path_sum_II_113
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree and a sum, find all root-to-leaf paths where each path's sum equals the given sum.
 //

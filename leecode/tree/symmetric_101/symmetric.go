@@ -3,7 +3,7 @@
 
 package symmetric_101
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 //Given a binary tree, check whether it is a mirror of itself (ie, symmetric around its center).
 //

@@ -3,7 +3,7 @@
 
 package cycle_141
 
-import . "go_learn/leecode/linked_list/base"
+import . "golearn/leecode/linked_list/base"
 
 // Given a linked list, determine if it has a cycle in it.
 //

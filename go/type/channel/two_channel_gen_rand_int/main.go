@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	"go_learn/utils"
+	"golearn/utils"
 )
 
 func main() {

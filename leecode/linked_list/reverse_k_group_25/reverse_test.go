@@ -4,7 +4,7 @@
 package reverse_k_group_25
 
 import (
-	"go_learn/leecode/linked_list/base"
+	"golearn/leecode/linked_list/base"
 	"testing"
 )
 

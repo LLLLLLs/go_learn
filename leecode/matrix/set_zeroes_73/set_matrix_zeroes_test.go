@@ -4,7 +4,7 @@
 package set_zeroes_73
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

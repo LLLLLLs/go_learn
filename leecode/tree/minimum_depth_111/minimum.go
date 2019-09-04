@@ -3,7 +3,7 @@
 
 package minimum_depth_111
 
-import . "go_learn/leecode/tree/base"
+import . "golearn/leecode/tree/base"
 
 // Given a binary tree, find its minimum depth.
 //

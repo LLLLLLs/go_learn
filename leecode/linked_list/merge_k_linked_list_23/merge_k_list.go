@@ -4,7 +4,7 @@
 package merge_k_linked_list_23
 
 import (
-	"go_learn/leecode/linked_list/base"
+	"golearn/leecode/linked_list/base"
 	"sort"
 )
 

@@ -4,7 +4,7 @@
 package rotate_image_48
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

@@ -4,7 +4,7 @@
 package spiral_II_59
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

@@ -4,7 +4,7 @@
 package permutations_I_46
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

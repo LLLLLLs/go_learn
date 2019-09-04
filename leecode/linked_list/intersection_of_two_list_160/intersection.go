@@ -3,7 +3,7 @@
 
 package intersection_of_two_list_160
 
-import . "go_learn/leecode/linked_list/base"
+import . "golearn/leecode/linked_list/base"
 
 // Write a program to find the node at which the intersection of two singly linked lists begins.
 //

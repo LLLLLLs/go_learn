@@ -3,7 +3,7 @@
 
 package sort_list_insertion_147
 
-import . "go_learn/leecode/linked_list/base"
+import . "golearn/leecode/linked_list/base"
 
 // Sort a linked list using insertion sort.
 //

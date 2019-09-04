@@ -4,7 +4,7 @@
 package sort_list_ologn_148
 
 import (
-	"go_learn/leecode/linked_list/base"
+	"golearn/leecode/linked_list/base"
 	"testing"
 )
 

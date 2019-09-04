@@ -5,7 +5,7 @@ package first_last_elem_34
 
 import (
 	"fmt"
-	"go_learn/utils"
+	"golearn/utils"
 	"sort"
 	"testing"
 )

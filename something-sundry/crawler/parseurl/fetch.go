@@ -4,7 +4,7 @@
 package parseurl
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"io/ioutil"
 	"net/http"
 )

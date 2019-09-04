@@ -4,7 +4,7 @@
 package subsets_78
 
 import (
-	"go_learn/utils"
+	"golearn/utils"
 	"testing"
 )
 

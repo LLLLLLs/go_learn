@@ -3,7 +3,7 @@
 
 package reverse_II_92
 
-import . "go_learn/leecode/linked_list/base"
+import . "golearn/leecode/linked_list/base"
 
 // Reverse a linked list from position m to n. Do it in one-pass.
 //

@@ -11,13 +11,18 @@ import (
 func TestGraph(t *testing.T) {
 	query := `
 	{
-		student{
+		student(Id:"11"){
 			Id
 			Name
 			Prof
 			Status
+			Power
+		}
+		list{
+			Id
+			Name
 		}
 	}
 `
-	fmt.Println(execQuery(query))
+	fmt.Println(ExecQuery(query))
 }
