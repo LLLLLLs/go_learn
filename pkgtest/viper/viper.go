@@ -8,16 +8,14 @@ import (
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	mongodb "golearn/something-sundry/mongo-test/mongo-db"
+	mongodb "golearn/sundry/mongo-test/mongo-db"
 	"golearn/utils"
 	"golearn/utils/typeconvert"
+	"os"
+	"path/filepath"
 )
 
-func init() {
-	viper.AddConfigPath("path")
-}
-
-func initConfig() map[string]interface{} {
+func initConfigFromMongo() map[string]interface{} {
 	ctx := context.Background()
 	mongodb.InitClient("mongodb://localhost")
 	client := mongodb.GetClient()
@@ -36,15 +34,24 @@ func initConfig() map[string]interface{} {
 			var key string
 			switch id := row["_id"].(type) {
 			case primitive.ObjectID:
-				key = id.String()
+				key = id.Hex()
 			case string:
 				key = id
-			case int8, int16, int, int64:
-				key = typeconvert.NumberToString(id)
+			case int8, int16, int32, int, int64:
+				key = typeconvert.ToString(id)
 			}
 			conf[key] = row
 		}
 		allConf[dbNames[i]] = conf
 	}
 	return allConf
+}
+
+func InitConfigFromFile(path string) {
+	execPath, err := os.Getwd()
+	utils.OkOrPanic(err)
+	absPath, _ := filepath.Abs(filepath.Dir(execPath) + path)
+	viper.SetConfigFile(absPath)
+	err = viper.ReadInConfig()
+	utils.OkOrPanic(err)
 }

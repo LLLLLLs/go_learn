@@ -1,7 +1,7 @@
 // Time        : 2019/09/02
 // Description :
 
-package mongotest
+package model
 
 type StudentValue struct {
 	Id            string `bson:"_id"` // 唯一ID
@@ -14,9 +14,4 @@ type StudentValue struct {
 	Status        int16  // 状态 1=婴儿 2=幼年 3=成年 4=待授勋
 	Exp           int    // 经验
 	RecoverRemain int64  // 活力回满剩余时间
-}
-
-type Role struct {
-	RoleId   string `bson:"_id"`
-	Students []StudentValue
 }

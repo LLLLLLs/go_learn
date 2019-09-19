@@ -5,7 +5,8 @@ package mongotest
 
 import (
 	"fmt"
-	mongodb "golearn/something-sundry/mongo-test/mongo-db"
+	model2 "golearn/sundry/mongo-test/model"
+	mongodb "golearn/sundry/mongo-test/mongo-db"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestInsertStudent(t *testing.T) {
-	insertStudent(StudentValue{
+	insertStudent(model2.StudentValue{
 		Id:            "1234",
 		Name:          "li si",
 		BeautyNo:      1,
@@ -62,4 +63,8 @@ func BenchmarkQueryAll(b *testing.B) {
 
 func TestInsertTest(t *testing.T) {
 	insertTest()
+}
+
+func TestInsertPhase(t *testing.T) {
+	insertPhase()
 }

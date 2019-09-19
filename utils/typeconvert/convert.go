@@ -4,20 +4,24 @@
 package typeconvert
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 )
 
-func NumberToString(i interface{}) string {
-	v := reflect.ValueOf(i)
-	switch v.Kind() {
-	case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int64:
-		return strconv.FormatInt(v.Int(), 10)
-	case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint64:
-		return strconv.FormatUint(v.Uint(), 10)
-	case reflect.Float32, reflect.Float64:
-		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
+func ToString(i interface{}) string {
+	switch result := i.(type) {
+	case string:
+		return result
+	case int8, int16, int32, int, int64:
+		return strconv.FormatInt(reflect.ValueOf(i).Int(), 10)
+	case uint8, uint16, uint32, uint, uint64:
+		return strconv.FormatUint(reflect.ValueOf(i).Uint(), 10)
+	case float32:
+		return fmt.Sprintf("%g", result)
+	case float64:
+		return strconv.FormatFloat(result, 'g', -1, 64)
 	default:
-		panic("not a number")
+		return fmt.Sprintf("%v", result)
 	}
 }

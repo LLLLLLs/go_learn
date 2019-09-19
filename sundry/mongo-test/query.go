@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	mongodb "golearn/something-sundry/mongo-test/mongo-db"
+	model2 "golearn/sundry/mongo-test/model"
+	mongodb "golearn/sundry/mongo-test/mongo-db"
 	"golearn/utils"
 )
 
@@ -19,7 +20,7 @@ func init() {
 	client = mongodb.GetClient()
 }
 
-func queryRole(id string) Role {
+func queryRole(id string) model2.Role {
 	ctx := context.Background()
 	collection := client.Database("test").Collection("role")
 	cur, err := collection.Find(ctx, bson.D{{"_id", id}})
@@ -27,13 +28,13 @@ func queryRole(id string) Role {
 	if !cur.Next(ctx) {
 		panic("no role")
 	}
-	var role Role
+	var role model2.Role
 	err = cur.Decode(&role)
 	utils.OkOrPanic(err)
 	return role
 }
 
-func queryStudent(id string) StudentValue {
+func queryStudent(id string) model2.StudentValue {
 	ctx := context.Background()
 	collection := client.Database("test").Collection("student")
 	cur, err := collection.Find(ctx, bson.D{{"name", id}})
@@ -41,7 +42,7 @@ func queryStudent(id string) StudentValue {
 	if !cur.Next(ctx) {
 		panic("no student")
 	}
-	var student StudentValue
+	var student model2.StudentValue
 	err = cur.Decode(&student)
 	utils.OkOrPanic(err)
 	return student
