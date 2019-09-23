@@ -22,3 +22,7 @@ func RegisterModel(model interface{}) {
 func AllModels() map[string]reflect.Type {
 	return models
 }
+
+func GetModelType(name string) reflect.Type {
+	return reflect.TypeOf(name)
+}

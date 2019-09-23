@@ -7,7 +7,7 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
 	mongodb "golearn/sundry/mongo-test/mongo-db"
-	"golearn/sundry/myconf/model"
+	"golearn/sundry/profile/model"
 	"golearn/utils"
 	"reflect"
 )

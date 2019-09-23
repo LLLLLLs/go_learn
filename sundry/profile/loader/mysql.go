@@ -7,7 +7,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-xorm/xorm"
-	"golearn/sundry/myconf/model"
+	"golearn/sundry/profile/model"
 	"golearn/utils"
 	"reflect"
 	"sync"
