@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/spf13/viper"
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
@@ -16,8 +16,8 @@ func TestGetConfig(t *testing.T) {
 	af := initConfigFromMongo()
 	stat := map[string]interface{}{"stat": af}
 	viper.SetConfigType("json")
-	err := viper.ReadConfig(bytes.NewBuffer(utils.Marshal(stat)))
-	utils.OkOrPanic(err)
+	err := viper.ReadConfig(bytes.NewBuffer(util.Marshal(stat)))
+	util.OkOrPanic(err)
 	//conf.GetVersion(1).GetTable("phase").Get("1.2")
 	//conf.GetVersion(1).GetTable("").GetAll()
 	students := viper.Get("stat.role.role.students")
@@ -42,7 +42,7 @@ func TestGetConfig(t *testing.T) {
 		UI64    uint64
 	}
 	data := viper.Get("stat.test.36318")
-	utils.Unmarshal(utils.Marshal(data), &conf)
+	util.Unmarshal(util.Marshal(data), &conf)
 	fmt.Printf("%+v\n", conf)
 }
 

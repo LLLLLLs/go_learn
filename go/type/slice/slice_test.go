@@ -67,3 +67,56 @@ func TestModifySlice(t *testing.T) {
 	fmt.Println(slice)
 	fmt.Println(nums)
 }
+
+func insertList(l []int, n int) []int {
+	if len(l) == 0 {
+		return []int{n}
+	}
+	if n < l[0] {
+		return append([]int{n}, l...)
+	} else if n > l[len(l)-1] {
+		return append(l, n)
+	}
+	left, right := 0, len(l)-1
+	insertIndex := func(index int) []int {
+		first := append(l[:index], n)
+		return append(first, l[index:]...)
+		//return append(append(append([]int{}, l[:index]...), n), l[index:]...)
+	}
+	for left < right {
+		mid := (left + right) / 2
+		if l[mid] == n {
+			return insertIndex(mid)
+		} else if l[mid] < n {
+			left = mid + 1
+		} else {
+			right = mid - 1
+		}
+	}
+	return insertIndex(left)
+}
+
+func TestInsert(t *testing.T) {
+	slice := []int{1, 3, 5, 7, 9}
+	fmt.Println(slice, "insert 5 ==>", insertList(slice, 5))
+	fmt.Println(slice, "insert 6 ==>", insertList(slice, 6))
+	fmt.Println(slice, "insert 8 ==>", insertList(slice, 8))
+	fmt.Println(slice, "insert 10 ==>", insertList(slice, 10))
+}
+
+func Test_Append(t *testing.T) {
+	ss := make([]int, 0, 4)
+	ss2 := append(ss, 1)
+	fmt.Printf("%p:%v\n", ss, ss)
+	fmt.Printf("%p:%v\n", ss2, ss2)
+
+	_ = append(ss[:], 1)
+	fmt.Println(ss)
+
+	ss = make([]int, 2, 4)
+	ss[0] = 1
+	ss[1] = 2
+	ss2 = append(ss[:1], 1)
+	fmt.Println(ss2)
+	fmt.Println(ss)
+}

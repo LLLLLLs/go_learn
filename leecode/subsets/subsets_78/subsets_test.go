@@ -4,16 +4,16 @@
 package subsets_78
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 func TestSubSets(t *testing.T) {
-	utils.Print2DimensionList(subsets([]int{1, 2, 3}))
+	util.Print2DimensionList(subsets([]int{1, 2, 3}))
 }
 
 func TestSubSetsBinary(t *testing.T) {
-	utils.Print2DimensionList(subsetsBinary([]int{1, 2, 3}))
+	util.Print2DimensionList(subsetsBinary([]int{1, 2, 3}))
 }
 
 func BenchmarkSubsetsBacktrack(b *testing.B) {

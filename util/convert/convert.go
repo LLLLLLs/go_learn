@@ -1,7 +1,7 @@
 // Time        : 2019/09/03
 // Description :
 
-package typeconvert
+package convert
 
 import (
 	"fmt"

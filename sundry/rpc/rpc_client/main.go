@@ -9,7 +9,7 @@ package main
 import (
 	"fmt"
 	"github.com/name5566/leaf/log"
-	"golearn/utils"
+	"golearn/util"
 	"net/rpc"
 )
 
@@ -20,10 +20,10 @@ func main() {
 	}
 	var reply []interface{}
 	err = client.Call("HelloService.Hello", 6, &reply)
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 	fmt.Println(reply)
 	var reply2 int
 	err = client.Call("HelloService.Calc", []int{1, 2}, &reply2)
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 	fmt.Println(reply2)
 }

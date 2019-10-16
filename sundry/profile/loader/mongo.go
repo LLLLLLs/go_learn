@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	mongodb "golearn/sundry/mongo-test/mongo-db"
 	"golearn/sundry/profile/model"
-	"golearn/utils"
+	"golearn/util"
 	"reflect"
 )
 
@@ -19,13 +19,13 @@ func (m MongoLoader) Load() (dataMap map[string]map[string]interface{}, dataList
 	mongodb.InitClient("mongodb://localhost")
 	client := mongodb.GetClient()
 	dbNames, err := client.Database("test2").ListCollectionNames(ctx, bson.D{})
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 	dataMap = make(map[string]map[string]interface{})
 	dataList = make(map[string]interface{})
 	for i := range dbNames {
 		collection := client.Database("test2").Collection(dbNames[i])
 		cur, err := collection.Find(ctx, bson.D{})
-		utils.OkOrPanic(err)
+		util.OkOrPanic(err)
 		typ := model.GetModelType(dbNames[i])
 		data := make(map[string]interface{})
 		list := reflect.MakeSlice(reflect.SliceOf(typ), 0, 0)

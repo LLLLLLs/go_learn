@@ -4,11 +4,11 @@
 package spiral_II_59
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 func TestSpiral(t *testing.T) {
 	result := generateMatrix(3)
-	utils.Print2DimensionList(result)
+	util.Print2DimensionList(result)
 }

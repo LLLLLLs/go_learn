@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	myviper "golearn/pkgtest/viper"
-	"golearn/utils"
+	"golearn/util"
 )
 
 func main() {
@@ -18,6 +18,6 @@ func main() {
 		fmt.Println(viper.Get("Length"))
 		fmt.Println("0 = exit 1 = continue")
 		_, err := fmt.Scanln(&isContinue)
-		utils.OkOrPanic(err)
+		util.OkOrPanic(err)
 	}
 }

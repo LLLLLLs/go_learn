@@ -4,7 +4,7 @@
 package rotate_image_48
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
@@ -16,12 +16,12 @@ func TestRotate(t *testing.T) {
 		{15, 14, 12, 16},
 	}
 	rotate(matrix)
-	utils.Print2DimensionList(matrix)
+	util.Print2DimensionList(matrix)
 	matrix = [][]int{
 		{1, 2, 3},
 		{4, 5, 6},
 		{7, 8, 9},
 	}
 	rotate(matrix)
-	utils.Print2DimensionList(matrix)
+	util.Print2DimensionList(matrix)
 }

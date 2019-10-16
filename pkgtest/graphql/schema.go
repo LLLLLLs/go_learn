@@ -5,7 +5,7 @@ package graphql
 
 import (
 	"github.com/graphql-go/graphql"
-	"golearn/utils"
+	"golearn/util"
 )
 
 var schema graphql.Schema
@@ -16,7 +16,7 @@ func init() {
 		Query:    queryType,
 		Mutation: mutationType,
 	})
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 }
 
 func ExecQuery(query string, variables ...map[string]interface{}) interface{} {

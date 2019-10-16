@@ -1,7 +1,7 @@
 // Time        : 2019/07/08
 // Description :
 
-package utils
+package util
 
 import (
 	"bytes"

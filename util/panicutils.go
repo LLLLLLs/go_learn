@@ -1,7 +1,7 @@
 // Time        : 2019/06/25
 // Description :
 
-package utils
+package util
 
 func OkOrPanic(err error) {
 	if err != nil {

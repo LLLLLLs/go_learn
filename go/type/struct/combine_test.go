@@ -5,7 +5,7 @@ package _struct
 
 import (
 	"fmt"
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
@@ -26,5 +26,5 @@ func TestCombine(t *testing.T) {
 		X:        0,
 		Y:        0,
 	}
-	fmt.Println(utils.MarshalToString(b))
+	fmt.Println(util.MarshalToString(b))
 }

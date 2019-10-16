@@ -4,11 +4,11 @@
 package permutations_I_46
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 func TestPermutation(t *testing.T) {
 	result := permute([]int{1, 2, 3})
-	utils.Print2DimensionList(result)
+	util.Print2DimensionList(result)
 }

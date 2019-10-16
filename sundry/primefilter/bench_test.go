@@ -4,20 +4,20 @@
 package primefilter
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 func BenchmarkNthPrimeWithList(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		n := utils.RandInt(5, 10)
+		n := util.RandInt(5, 10)
 		NthPrimeWithList(n)
 	}
 }
 
 func BenchmarkNthPrimeWithFilter(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		n := utils.RandInt(5, 10)
+		n := util.RandInt(5, 10)
 		NthPrimeWithFilter(n)
 	}
 }

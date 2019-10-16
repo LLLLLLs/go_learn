@@ -5,7 +5,7 @@ package sort
 
 import (
 	"fmt"
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
@@ -14,7 +14,7 @@ var nums []int
 func init() {
 	nums = make([]int, 10)
 	for i := range nums {
-		nums[i] = utils.RandInt(0, 10)
+		nums[i] = util.RandInt(0, 10)
 	}
 }
 

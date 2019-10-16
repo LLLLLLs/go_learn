@@ -4,18 +4,18 @@
 package word_ladder_II_126
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 func TestLadder(t *testing.T) {
-	utils.Print2DimensionList(findLadders(
+	util.Print2DimensionList(findLadders(
 		"hit",
 		"cog",
 		[]string{"hot", "dot", "dog", "lot", "log", "cog"}),
 	)
 
-	utils.Print2DimensionList(findLadders(
+	util.Print2DimensionList(findLadders(
 		"cet",
 		"ism",
 		[]string{"kid", "tag", "pup", "ail", "tun", "woo", "erg", "luz", "brr", "gay", "sip", "kay", "per", "val",

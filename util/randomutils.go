@@ -1,7 +1,7 @@
 // Time        : 2019/06/25
 // Description :
 
-package utils
+package util
 
 import (
 	"math/rand"

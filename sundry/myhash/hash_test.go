@@ -5,7 +5,7 @@ package myhash
 
 import (
 	"fmt"
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
@@ -21,13 +21,13 @@ func TestMyHash(t *testing.T) {
 func BenchmarkMyHash(b *testing.B) {
 	h := newHash()
 	for i := 0; i < b.N; i++ {
-		h.set(i+utils.RandInt(0, 10), fmt.Sprintf("%d", i))
+		h.set(i+util.RandInt(0, 10), fmt.Sprintf("%d", i))
 	}
 }
 
 func BenchmarkMap(b *testing.B) {
 	m := make(map[int]string)
 	for i := 0; i < b.N; i++ {
-		m[i+utils.RandInt(0, 10)] = fmt.Sprintf("%d", i)
+		m[i+util.RandInt(0, 10)] = fmt.Sprintf("%d", i)
 	}
 }

@@ -4,7 +4,7 @@
 package surrounded_regions_130
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
@@ -16,10 +16,10 @@ func TestSurrounded(t *testing.T) {
 		{'X', 'O', 'X', 'X'},
 	}
 	solve(board)
-	utils.Print2DimensionList(board)
+	util.Print2DimensionList(board)
 	board = [][]byte{
 		{'O'},
 	}
 	solve(board)
-	utils.Print2DimensionList(board)
+	util.Print2DimensionList(board)
 }

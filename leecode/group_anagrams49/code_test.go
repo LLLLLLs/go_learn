@@ -4,11 +4,11 @@
 package group_anagrams49
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 func TestGroupAnagram(t *testing.T) {
 	res := groupAnagrams([]string{"eat", "tea", "tan", "ate", "nat", "bat"})
-	utils.Print2DimensionList(res)
+	util.Print2DimensionList(res)
 }

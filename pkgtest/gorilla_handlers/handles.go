@@ -5,7 +5,7 @@ package main
 
 import (
 	"github.com/gorilla/handlers"
-	"golearn/utils"
+	"golearn/util"
 	"io"
 	"net/http"
 	"os"
@@ -13,11 +13,11 @@ import (
 
 func main() {
 	http.Handle("/hello", handlers.CombinedLoggingHandler(os.Stdout, http.HandlerFunc(myHandler)))
-	utils.OkOrPanic(http.ListenAndServe(":1234", nil))
+	util.OkOrPanic(http.ListenAndServe(":1234", nil))
 }
 
 func myHandler(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(http.StatusAccepted)
 	_, err := io.WriteString(rw, "hello world")
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 }

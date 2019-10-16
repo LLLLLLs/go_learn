@@ -4,10 +4,10 @@
 package palindrome_partitioning_131
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 func TestPartition(t *testing.T) {
-	utils.Print2DimensionList(partition("aaba"))
+	util.Print2DimensionList(partition("aaba"))
 }

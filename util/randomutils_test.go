@@ -1,10 +1,11 @@
 // Time        : 2019/09/19
 // Description :
 
-package utils
+package util
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -63,4 +64,12 @@ func TestRandMap(t *testing.T) {
 	}
 	fmt.Println("list耗时:", time.Now().Sub(start).Nanoseconds()/int64(time.Millisecond))
 	fmt.Printf("%+v\n%+v\n", resultMap, resultList)
+}
+
+func TestInitRand(t *testing.T) {
+	rand.Seed(time.Now().Unix())
+	fmt.Println(rand.Float64())
+	fmt.Println(rand.Float32())
+	fmt.Println(rand.ExpFloat64())
+	fmt.Println(rand.NormFloat64())
 }

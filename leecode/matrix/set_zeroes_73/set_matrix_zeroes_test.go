@@ -4,7 +4,7 @@
 package set_zeroes_73
 
 import (
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
@@ -15,7 +15,7 @@ func TestSetZeroes(t *testing.T) {
 		{1, 3, 1, 5},
 	}
 	setZeroes(matrix)
-	utils.Print2DimensionList(matrix)
+	util.Print2DimensionList(matrix)
 }
 
 func TestSetZeroesMap(t *testing.T) {
@@ -25,7 +25,7 @@ func TestSetZeroesMap(t *testing.T) {
 		{1, 3, 1, 5},
 	}
 	setZeroesMap(matrix)
-	utils.Print2DimensionList(matrix)
+	util.Print2DimensionList(matrix)
 }
 
 func BenchmarkSetZeroesList(b *testing.B) {

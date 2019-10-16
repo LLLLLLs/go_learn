@@ -8,7 +8,7 @@ package main
 
 import (
 	"github.com/name5566/leaf/log"
-	"golearn/utils"
+	"golearn/util"
 	"net"
 	"net/rpc"
 	"strconv"
@@ -33,7 +33,7 @@ func (hs *HelloService) Calc(p []int, reply *int) error {
 
 func main() {
 	err := rpc.RegisterName("HelloService", new(HelloService))
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 	listener, err := net.Listen("tcp", ":1234")
 	if err != nil {
 		log.Fatal("Tcp listen err:", err)

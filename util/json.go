@@ -1,7 +1,7 @@
 // Time        : 2019/08/19
 // Description :
 
-package utils
+package util
 
 import "encoding/json"
 

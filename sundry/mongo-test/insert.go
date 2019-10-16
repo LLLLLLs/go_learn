@@ -6,7 +6,7 @@ package mongotest
 import (
 	"context"
 	model2 "golearn/sundry/mongo-test/model"
-	"golearn/utils"
+	"golearn/util"
 	"math"
 	"strconv"
 )
@@ -15,7 +15,7 @@ func insertStudent(stu model2.StudentValue) {
 	ctx := context.Background()
 	collection := client.Database("test").Collection("student")
 	_, err := collection.InsertOne(ctx, stu)
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 }
 
 func insertRole(id string, stuNum int) model2.Role {
@@ -36,11 +36,11 @@ func insertRole(id string, stuNum int) model2.Role {
 			Prof:          int16(i),
 			Status:        int16(i),
 			Exp:           10,
-			RecoverRemain: int64(utils.RandInt(1000, 1800)),
+			RecoverRemain: int64(util.RandInt(1000, 1800)),
 		})
 	}
 	_, err := collection.InsertOne(ctx, role)
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 	return role
 }
 
@@ -60,7 +60,7 @@ func insertTest() {
 		UI64    uint64
 		Object  *struct{}
 	}{
-		Id:      utils.RandInt(10000, 99999),
+		Id:      util.RandInt(10000, 99999),
 		F32:     100.1,
 		F64:     100.2,
 		B:       false,
@@ -69,11 +69,11 @@ func insertTest() {
 		UI:      123456789,
 		UI32:    123456789,
 		UI32Max: math.MaxUint32,
-		UI64:    9999,
+		UI64:    math.MaxUint64 / 2,
 		Object:  &struct{}{},
 	}
 	_, err := collection.InsertOne(ctx, info)
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 }
 
 func insertPhase() {
@@ -85,5 +85,5 @@ func insertPhase() {
 		Index3: 4,
 		Conf:   "phase 2.3.4 config",
 	})
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 }

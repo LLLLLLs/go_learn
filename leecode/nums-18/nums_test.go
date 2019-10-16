@@ -5,14 +5,14 @@ package nums_18
 
 import (
 	"fmt"
-	"golearn/utils"
+	"golearn/util"
 	"testing"
 )
 
 var testList = func() []int {
 	l := make([]int, 60)
 	for i := range l {
-		l[i] = utils.RandInt(-20, 20)
+		l[i] = util.RandInt(-20, 20)
 	}
 	return l
 }()

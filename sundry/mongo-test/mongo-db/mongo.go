@@ -7,7 +7,7 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golearn/utils"
+	"golearn/util"
 )
 
 var client *mongo.Client
@@ -22,7 +22,7 @@ func GetClient() *mongo.Client {
 func InitClient(uri string) {
 	var err error
 	client, err = mongo.NewClient(options.Client().ApplyURI(uri))
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 	err = client.Connect(context.Background())
-	utils.OkOrPanic(err)
+	util.OkOrPanic(err)
 }
