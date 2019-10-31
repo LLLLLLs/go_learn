@@ -26,3 +26,11 @@ func TestNil(t *testing.T) {
 	i = &Nil2{B: 2}
 	reflect.ValueOf(i).Elem().Set(reflect.ValueOf(&Nil2{B: 2}).Elem())
 }
+
+func TestSliceInterface(t *testing.T) {
+	nilTest(nil)
+}
+
+func nilTest(models ...interface{}) {
+	fmt.Println(models[0] != nil)
+}

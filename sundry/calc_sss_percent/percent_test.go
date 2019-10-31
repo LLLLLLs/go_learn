@@ -9,7 +9,7 @@ import (
 )
 
 func TestCalcPercent(t *testing.T) {
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 18; i++ {
 		fmt.Println(calcPercent(i))
 	}
 }

@@ -37,17 +37,28 @@ func TestQueryStudent(t *testing.T) {
 }
 
 func TestInsertRole(t *testing.T) {
-	insertRole("role1", 4)
+	insertRole("role2", 4)
 }
 
 func TestQueryRole(t *testing.T) {
-	role := queryRole("role")
+	role := queryRole("role2", &model2.StudentValue{})
+	fmt.Printf("%+v\n", role)
+}
+
+func TestQueryRoleList(t *testing.T) {
+	ss := make([]model2.StudentValue, 0)
+	role := queryRole("role1", &ss)
+	fmt.Printf("%+v\n", role)
+}
+
+func TestQueryRoleByRegex(t *testing.T) {
+	role := queryByRegex("^role.*")
 	fmt.Printf("%+v\n", role)
 }
 
 func BenchmarkQuery(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		queryRole("role")
+		queryRole("role", []model2.StudentValue{})
 	}
 }
 
@@ -67,4 +78,12 @@ func TestInsertTest(t *testing.T) {
 
 func TestInsertPhase(t *testing.T) {
 	insertPhase()
+}
+
+func TestInsertMap(t *testing.T) {
+	insertMap()
+}
+
+func TestQueryMap(t *testing.T) {
+	queryMap()
 }

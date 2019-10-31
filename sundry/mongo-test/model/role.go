@@ -3,7 +3,16 @@
 
 package model
 
+import (
+	"golearn/sundry/mongo-test/util"
+)
+
 type Role struct {
 	RoleId   string `bson:"_id"`
-	Students []StudentValue
+	Students interface{}
+}
+
+func (r *Role) MarshalStudents(model interface{}) {
+	util.MarshalExtend(r.Students, model)
+	r.Students = model
 }

@@ -22,22 +22,35 @@ func insertRole(id string, stuNum int) model2.Role {
 	ctx := context.Background()
 	collection := client.Database("test").Collection("role")
 	role := model2.Role{
-		RoleId:   id,
-		Students: make([]model2.StudentValue, 0),
+		RoleId: id,
 	}
-	for i := 1; i <= stuNum; i++ {
-		role.Students = append(role.Students, model2.StudentValue{
-			Id:            "studentId" + strconv.Itoa(i),
-			Name:          "studentName" + strconv.Itoa(i),
-			BeautyNo:      int16(i),
-			Sex:           int16(i)%2 + 1,
-			Talent:        int16(i),
-			Power:         999 * int64(i),
-			Prof:          int16(i),
-			Status:        int16(i),
-			Exp:           10,
-			RecoverRemain: int64(util.RandInt(1000, 1800)),
-		})
+	//students := make([]model2.StudentValue, stuNum)
+	//for i := range students {
+	//	students[i] = model2.StudentValue{
+	//		Id:            "studentId" + strconv.Itoa(i),
+	//		Name:          "studentName" + strconv.Itoa(i),
+	//		BeautyNo:      int16(i),
+	//		Sex:           int16(i)%2 + 1,
+	//		Talent:        int16(i),
+	//		Power:         999 * int64(i),
+	//		Prof:          int16(i),
+	//		Status:        int16(i),
+	//		Exp:           10,
+	//		RecoverRemain: int64(util.RandInt(1000, 1800)),
+	//	}
+	//}
+	i := 1
+	role.Students = model2.StudentValue{
+		Id:            "studentId" + strconv.Itoa(i),
+		Name:          "studentName" + strconv.Itoa(i),
+		BeautyNo:      int16(i),
+		Sex:           int16(i)%2 + 1,
+		Talent:        int16(i),
+		Power:         999 * int64(i),
+		Prof:          int16(i),
+		Status:        int16(i),
+		Exp:           10,
+		RecoverRemain: int64(util.RandInt(1000, 1800)),
 	}
 	_, err := collection.InsertOne(ctx, role)
 	util.OkOrPanic(err)
@@ -71,6 +84,27 @@ func insertTest() {
 		UI32Max: math.MaxUint32,
 		UI64:    math.MaxUint64 / 2,
 		Object:  &struct{}{},
+	}
+	_, err := collection.InsertOne(ctx, info)
+	util.OkOrPanic(err)
+}
+
+type ModelWithMap struct {
+	A string
+	B int
+	C map[string]string
+}
+
+func insertMap() {
+	ctx := context.Background()
+	collection := client.Database("test").Collection("test")
+	info := ModelWithMap{
+		A: "test",
+		B: 123,
+		C: map[string]string{
+			"D": "D",
+			"E": "E",
+		},
 	}
 	_, err := collection.InsertOne(ctx, info)
 	util.OkOrPanic(err)

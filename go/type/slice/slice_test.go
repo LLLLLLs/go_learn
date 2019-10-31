@@ -120,3 +120,25 @@ func Test_Append(t *testing.T) {
 	fmt.Println(ss2)
 	fmt.Println(ss)
 }
+
+func TestAppendWhenRange(t *testing.T) {
+	var list = make([]int, 5, 10)
+	var app = false
+	for _, j := range list {
+		fmt.Println(j)
+		if app {
+			list = append(list, list[len(list)-1])
+		}
+		app = !app
+	}
+}
+
+func TestInitial(t *testing.T) {
+	slice := []int{
+		0:  1,
+		2:  3,
+		1:  2,
+		10: 11,
+	}
+	fmt.Println(slice)
+}
