@@ -142,3 +142,12 @@ func TestInitial(t *testing.T) {
 	}
 	fmt.Println(slice)
 }
+
+func TestSliceCopy(t *testing.T) {
+	a := make([]int, 5, 10)
+	fmt.Println(a)
+	b := a[1:]
+	fmt.Printf("value=%v,len=%d,cap=%d\n", b, len(b), cap(b))
+	b[0] = 2
+	fmt.Println(a)
+}
