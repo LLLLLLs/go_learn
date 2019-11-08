@@ -16,7 +16,7 @@ func init() {
 		Query:    queryType,
 		Mutation: mutationType,
 	})
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }
 
 func ExecQuery(query string, variables ...map[string]interface{}) interface{} {

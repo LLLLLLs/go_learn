@@ -26,3 +26,21 @@ func TestFunc(t *testing.T) {
 func printFunc(f func() int) {
 	fmt.Println(f())
 }
+
+func TestGetCurrentFuncName(t *testing.T) {
+	cur := GetCurrentFuncName()
+	fmt.Println(cur)
+}
+
+func TestGetTargetFuncName(t *testing.T) {
+	target := GetTargetFuncName(printFunc)
+	fmt.Println(target)
+}
+
+func TestTraceWithFuncForPC(t *testing.T) {
+	TraceWithFuncForPC()
+}
+
+func TestTraceWithFrames(t *testing.T) {
+	TraceWithFrames()
+}

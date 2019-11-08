@@ -33,7 +33,7 @@ func (hs *HelloService) Calc(p []int, reply *int) error {
 
 func main() {
 	err := rpc.RegisterName("HelloService", new(HelloService))
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	listener, err := net.Listen("tcp", ":1234")
 	if err != nil {
 		log.Fatal("Tcp listen err:", err)

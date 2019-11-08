@@ -12,10 +12,10 @@ import (
 
 func TestReadFile(t *testing.T) {
 	file, err := os.Open("testfile\\type.go")
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	defer file.Close()
 	body := make([]byte, 100)
 	n, err := file.Read(body)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	fmt.Println(string(body), n)
 }

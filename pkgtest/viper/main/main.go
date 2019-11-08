@@ -18,6 +18,6 @@ func main() {
 		fmt.Println(viper.Get("Length"))
 		fmt.Println("0 = exit 1 = continue")
 		_, err := fmt.Scanln(&isContinue)
-		util.OkOrPanic(err)
+		util.MustNil(err)
 	}
 }

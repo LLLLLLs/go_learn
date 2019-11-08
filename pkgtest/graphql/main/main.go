@@ -42,13 +42,13 @@ func main() {
 	//}
 	http.HandleFunc("/graphql", func(writer http.ResponseWriter, request *http.Request) {
 		data, err := ioutil.ReadAll(request.Body)
-		util.OkOrPanic(err)
+		util.MustNil(err)
 		fmt.Println(string(data))
 		result := graphql.ExecQuery(string(data))
 		_, err = writer.Write(util.Marshal(result))
-		util.OkOrPanic(err)
+		util.MustNil(err)
 	})
-	util.OkOrPanic(http.ListenAndServe(":8080", nil))
+	util.MustNil(http.ListenAndServe(":8080", nil))
 }
 
 var allField = `
@@ -69,10 +69,10 @@ func create() {
 	var beauty int
 	fmt.Println("请输入学员名称")
 	_, err := fmt.Scanln(&name)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	fmt.Println("请输入名媛编号")
 	_, err = fmt.Scanln(&beauty)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	mutation := `mutation {
 	create(Name: "` + name + `",BeautyNo: ` + strconv.Itoa(beauty) + `) {` + allField + `	}
 }`
@@ -85,7 +85,7 @@ func train() {
 	var id string
 	fmt.Println("请输入学员ID")
 	_, err := fmt.Scanln(&id)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	mutation := `mutation {
 	train(Id: "` + id + `") {` + allField + `	}
 }`
@@ -98,7 +98,7 @@ func reject() {
 	var id string
 	fmt.Println("请输入学员ID")
 	_, err := fmt.Scanln(&id)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	mutation := `mutation {
 	reject(Id:"` + id + `")
 }`

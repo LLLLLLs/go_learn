@@ -10,6 +10,6 @@ import (
 
 func DeepCopy(dst, src interface{}) {
 	io := new(bytes.Buffer)
-	OkOrPanic(gob.NewEncoder(io).Encode(src))
-	OkOrPanic(gob.NewDecoder(io).Decode(dst))
+	MustNil(gob.NewEncoder(io).Encode(src))
+	MustNil(gob.NewDecoder(io).Decode(dst))
 }

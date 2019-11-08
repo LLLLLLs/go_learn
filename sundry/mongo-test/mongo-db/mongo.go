@@ -22,7 +22,7 @@ func GetClient() *mongo.Client {
 func InitClient(uri string) {
 	var err error
 	client, err = mongo.NewClient(options.Client().ApplyURI(uri))
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	err = client.Connect(context.Background())
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }

@@ -7,17 +7,17 @@ import "encoding/json"
 
 func MarshalToString(v interface{}) string {
 	b, err := json.Marshal(v)
-	OkOrPanic(err)
+	MustNil(err)
 	return string(b)
 }
 
 func Marshal(v interface{}) []byte {
 	b, err := json.Marshal(v)
-	OkOrPanic(err)
+	MustNil(err)
 	return b
 }
 
 func Unmarshal(data []byte, v interface{}) {
 	err := json.Unmarshal(data, v)
-	OkOrPanic(err)
+	MustNil(err)
 }

@@ -55,16 +55,16 @@ func marshalA(extend bson.A, model interface{}) {
 
 func marshalBson(extend interface{}, model interface{}) {
 	data, err := bson.Marshal(extend)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	err = bson.Unmarshal(data, model)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }
 
 func marshalJson(extend interface{}, model interface{}) {
 	data, err := json.Marshal(extend)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	err = json.Unmarshal(data, model)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }
 
 func marshalDefault(extend interface{}, model interface{}) {

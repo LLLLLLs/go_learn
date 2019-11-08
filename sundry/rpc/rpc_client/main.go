@@ -20,10 +20,10 @@ func main() {
 	}
 	var reply []interface{}
 	err = client.Call("HelloService.Hello", 6, &reply)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	fmt.Println(reply)
 	var reply2 int
 	err = client.Call("HelloService.Calc", []int{1, 2}, &reply2)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	fmt.Println(reply2)
 }

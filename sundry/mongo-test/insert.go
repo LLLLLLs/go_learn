@@ -15,7 +15,7 @@ func insertStudent(stu model2.StudentValue) {
 	ctx := context.Background()
 	collection := client.Database("test").Collection("student")
 	_, err := collection.InsertOne(ctx, stu)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }
 
 func insertRole(id string, stuNum int) model2.Role {
@@ -53,7 +53,7 @@ func insertRole(id string, stuNum int) model2.Role {
 		RecoverRemain: int64(util.RandInt(1000, 1800)),
 	}
 	_, err := collection.InsertOne(ctx, role)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	return role
 }
 
@@ -86,7 +86,7 @@ func insertTest() {
 		Object:  &struct{}{},
 	}
 	_, err := collection.InsertOne(ctx, info)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }
 
 type ModelWithMap struct {
@@ -107,7 +107,7 @@ func insertMap() {
 		},
 	}
 	_, err := collection.InsertOne(ctx, info)
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }
 
 func insertPhase() {
@@ -119,5 +119,5 @@ func insertPhase() {
 		Index3: 4,
 		Conf:   "phase 2.3.4 config",
 	})
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }

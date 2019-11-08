@@ -31,7 +31,7 @@ import (
 func ParseGoQuery(url string, result *[]interface{}) {
 	body := fetch(url)
 	doc, err := goquery.NewDocumentFromReader(bytes.NewBufferString(body))
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	doc.Find("ol.grid_view li").Find(".hd").Each(func(i int, selection *goquery.Selection) {
 		url, _ := selection.Find("a").Attr("href")
 		*result = append(*result, []interface{}{strings.Split(url, "/")[4], selection.Find(".title").Eq(0).Text()})

@@ -17,7 +17,7 @@ func TestGetConfig(t *testing.T) {
 	stat := map[string]interface{}{"stat": af}
 	viper.SetConfigType("json")
 	err := viper.ReadConfig(bytes.NewBuffer(util.Marshal(stat)))
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	//conf.GetVersion(1).GetTable("phase").Get("1.2")
 	//conf.GetVersion(1).GetTable("").GetAll()
 	students := viper.Get("stat.role.role.students")

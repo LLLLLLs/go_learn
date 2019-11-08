@@ -22,7 +22,7 @@ func getConn() *xorm.Engine {
 	once.Do(func() {
 		var err error
 		conn, err = xorm.NewEngine(driverName, getUri())
-		util.OkOrPanic(err)
+		util.MustNil(err)
 		conn.SetTableMapper(core.SnakeMapper{})
 		conn.SetColumnMapper(core.SnakeMapper{})
 	})
@@ -38,7 +38,7 @@ func (m MysqlLoader) Load() (dataMap map[string]map[string]interface{}, dataList
 	for name, typ := range model.AllModels() {
 		slice := reflect.New(reflect.SliceOf(typ))
 		err := conn.Find(slice.Interface())
-		util.OkOrPanic(err)
+		util.MustNil(err)
 		var data = make(map[string]interface{})
 		slice = slice.Elem()
 		for i := 0; i < slice.Len(); i++ {

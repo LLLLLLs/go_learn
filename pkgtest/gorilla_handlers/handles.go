@@ -13,11 +13,11 @@ import (
 
 func main() {
 	http.Handle("/hello", handlers.CombinedLoggingHandler(os.Stdout, http.HandlerFunc(myHandler)))
-	util.OkOrPanic(http.ListenAndServe(":1234", nil))
+	util.MustNil(http.ListenAndServe(":1234", nil))
 }
 
 func myHandler(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(http.StatusAccepted)
 	_, err := io.WriteString(rw, "hello world")
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }

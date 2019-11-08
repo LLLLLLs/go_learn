@@ -20,17 +20,17 @@ func initConfigFromMongo() map[string]interface{} {
 	mongodb.InitClient("mongodb://localhost")
 	client := mongodb.GetClient()
 	dbNames, err := client.Database("test").ListCollectionNames(ctx, bson.D{})
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	allConf := make(map[string]interface{})
 	for i := range dbNames {
 		collection := client.Database("test").Collection(dbNames[i])
 		cur, err := collection.Find(ctx, bson.D{})
-		util.OkOrPanic(err)
+		util.MustNil(err)
 		conf := make(map[string]interface{})
 		for cur.Next(ctx) {
 			var row bson.M
 			err = cur.Decode(&row)
-			util.OkOrPanic(err)
+			util.MustNil(err)
 			var key string
 			switch id := row["_id"].(type) {
 			case primitive.ObjectID:
@@ -49,9 +49,9 @@ func initConfigFromMongo() map[string]interface{} {
 
 func InitConfigFromFile(path string) {
 	execPath, err := os.Getwd()
-	util.OkOrPanic(err)
+	util.MustNil(err)
 	absPath, _ := filepath.Abs(filepath.Dir(execPath) + path)
 	viper.SetConfigFile(absPath)
 	err = viper.ReadInConfig()
-	util.OkOrPanic(err)
+	util.MustNil(err)
 }
