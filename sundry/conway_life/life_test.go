@@ -10,12 +10,19 @@ import (
 )
 
 func TestNextStep(t *testing.T) {
+	// . X X .
+	// X X . X
+	// X . X .
+	// . X . .
 	board := [][]bool{
 		{false, true, true, false},
 		{true, true, false, true},
 		{true, false, true, false},
 		{false, true, false, false},
 	}
+	// X .
+	// X X
+	// X X
 	//board := [][]bool{
 	//	{true, false},
 	//	{true, true},

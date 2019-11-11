@@ -3,6 +3,8 @@
 
 package conwaylife
 
+const MAX_BOARD_SIZE = 64
+
 var di = []int{-1, -1, -1, 0, 0, 1, 1, 1}
 var dj = []int{-1, 0, 1, -1, 1, -1, 0, 1}
 
@@ -33,6 +35,7 @@ func NextStep(now [][]bool) [][]bool {
 	return next
 }
 
+// 收缩或扩张领地
 func formatBoard(board [][]bool) [][]bool {
 	if len(board) == 0 {
 		return emptyBoard
@@ -57,7 +60,7 @@ func topTrim(board [][]bool) [][]bool {
 		}
 	}
 outLoop:
-	if row == 0 {
+	if row == 0 && len(board) < MAX_BOARD_SIZE {
 		newLine := make([]bool, len(board[0]))
 		board = append([][]bool{newLine}, board...)
 	}
@@ -78,7 +81,7 @@ func bottomTrim(board [][]bool) [][]bool {
 		}
 	}
 outLoop:
-	if row == len(board)-1 {
+	if row == len(board)-1 && len(board) < MAX_BOARD_SIZE {
 		newLine := make([]bool, len(board[0]))
 		board = append(board, newLine)
 	}
@@ -98,7 +101,7 @@ func leftTrim(board [][]bool) [][]bool {
 		}
 	}
 outLoop:
-	if col == 0 {
+	if col == 0 && len(board[0]) < MAX_BOARD_SIZE {
 		for i := range board {
 			board[i] = append([]bool{false}, board[i]...)
 		}
@@ -122,7 +125,7 @@ func rightTrim(board [][]bool) [][]bool {
 		}
 	}
 outLoop:
-	if col == len(board[0])-1 {
+	if col == len(board[0])-1 && len(board[0]) < MAX_BOARD_SIZE {
 		for i := range board {
 			board[i] = append(board[i], false)
 		}
