@@ -14,6 +14,10 @@ type node struct {
 	level []*node
 }
 
+func (n node) String() string {
+	return fmt.Sprintf("key:%d,value:%d", n.key, n.value)
+}
+
 func newNode(k, v int) *node {
 	return &node{
 		key:   k,

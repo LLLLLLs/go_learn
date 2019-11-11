@@ -31,8 +31,8 @@ func TestSkipList(t *testing.T) {
 	l.insert(14, 14)
 	fmt.Println()
 	l.print()
-	fmt.Println("search 1", l.search(1).key)
-	fmt.Println("search 9", l.search(9))
-	fmt.Println("search 14", l.search(14))
-	fmt.Println("search 15", l.search(15).key)
+	fmt.Println("search 1:", l.search(1).key)
+	fmt.Println("search 9:", l.search(9))
+	fmt.Println("search 14:", l.search(14))
+	fmt.Println("search 15:", l.search(15).key)
 }
