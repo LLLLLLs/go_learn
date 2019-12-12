@@ -26,3 +26,17 @@ func TestDefer(t *testing.T) {
 func d(f func()) {
 	f()
 }
+
+func TestRecover(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			fmt.Println(e)
+		}
+	}()
+	defer func() {
+		if e := recover(); e != nil {
+			fmt.Println(e)
+		}
+	}()
+	panic(111)
+}

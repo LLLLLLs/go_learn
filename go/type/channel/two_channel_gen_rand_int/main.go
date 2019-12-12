@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	"golearn/util"
+	"golearn/util/randutil"
 )
 
 func main() {
@@ -13,7 +13,7 @@ func main() {
 	sig := make(chan struct{})
 	go func() {
 		for i := 0; i < 5; i++ {
-			ch <- util.RandInt(1, 5)
+			ch <- randutil.RandInt(1, 5)
 		}
 	}()
 	go func() {

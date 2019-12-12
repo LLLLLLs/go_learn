@@ -5,16 +5,17 @@ package sort
 
 import (
 	"fmt"
-	"golearn/util"
+	"golearn/util/randutil"
+	"sort"
 	"testing"
 )
 
 var nums []int
 
 func init() {
-	nums = make([]int, 10)
+	nums = make([]int, 100000)
 	for i := range nums {
-		nums[i] = util.RandInt(0, 10)
+		nums[i] = randutil.RandInt(0, 100000)
 	}
 }
 
@@ -44,5 +45,13 @@ func BenchmarkQSort(b *testing.B) {
 func BenchmarkQSortGo(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		qSortGo(nums)
+	}
+}
+
+func BenchmarkGoSort(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		cp := make([]int, len(nums))
+		copy(cp, nums)
+		sort.Ints(cp)
 	}
 }

@@ -1,9 +1,7 @@
 // Time        : 2019/09/24
 // Description : 自定义随机函数
 
-package myrand
-
-import "golearn/util"
+package randutil
 
 type Dice interface {
 	// 获取闭区间[min,max]中的随机数
@@ -32,7 +30,7 @@ func (d *dice) Seed() int {
 
 func InitDice() Dice {
 	//随机得到一个种子，返回给客户端，并生成随机数生成器
-	seed := util.RandInt(0, 65536)
+	seed := RandInt(0, 65536)
 	return InitDiceWithSeed(seed)
 }
 

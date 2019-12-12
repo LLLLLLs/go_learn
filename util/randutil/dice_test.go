@@ -1,7 +1,7 @@
 // Time        : 2019/09/24
 // Description :
 
-package myrand
+package randutil
 
 import (
 	"fmt"

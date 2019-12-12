@@ -5,7 +5,7 @@ package first_last_elem_34
 
 import (
 	"fmt"
-	"golearn/util"
+	"golearn/util/randutil"
 	"sort"
 	"testing"
 )
@@ -16,10 +16,10 @@ var target int
 func init() {
 	list = make([]int, 200)
 	for i := range list {
-		list[i] = util.RandInt(1, 200)
+		list[i] = randutil.RandInt(1, 200)
 	}
 	sort.Ints(list)
-	target = util.RandInt(1, 200)
+	target = randutil.RandInt(1, 200)
 }
 
 func TestSearchRange(t *testing.T) {

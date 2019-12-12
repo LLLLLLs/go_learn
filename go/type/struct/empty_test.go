@@ -17,3 +17,28 @@ func TestEmpty(t *testing.T) {
 	eb.world()
 	fmt.Println(reflect.TypeOf(base.ListNode{}).Name())
 }
+
+type Foo struct {
+	A string
+	B *string
+}
+
+var f Foo
+
+type Bar struct {
+	value Foo
+	ptr   *Foo
+}
+
+func newBar() Bar {
+	return Bar{}
+}
+
+func TestFoo(t *testing.T) {
+	fmt.Printf("%+v\n", f)
+	bar := newBar()
+	fmt.Printf("%+v\n", bar)
+	fmt.Printf("%p\n", &bar.ptr)
+
+	fmt.Printf("foo:%p,foo.A:%p\n", &f, &f.A)
+}

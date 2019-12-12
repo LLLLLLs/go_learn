@@ -6,7 +6,7 @@ package graphql
 import (
 	"errors"
 	"github.com/graphql-go/graphql"
-	"golearn/util"
+	"golearn/util/randutil"
 	"strconv"
 )
 
@@ -27,13 +27,13 @@ var mutationType = graphql.NewObject(graphql.ObjectConfig{
 			},
 			Resolve: func(p graphql.ResolveParams) (i interface{}, e error) {
 				stu := StudentValue{
-					Id:            strconv.Itoa(util.RandInt(10, 99)),
+					Id:            strconv.Itoa(randutil.RandInt(10, 99)),
 					Name:          p.Args["Name"].(string),
 					BeautyNo:      int16(p.Args["BeautyNo"].(int)),
-					Sex:           int16(util.RandInt(1, 2)),
-					Talent:        int16(util.RandInt(1, 5)),
+					Sex:           int16(randutil.RandInt(1, 2)),
+					Talent:        int16(randutil.RandInt(1, 5)),
 					Power:         0,
-					Prof:          int16(util.RandInt(1, 4)),
+					Prof:          int16(randutil.RandInt(1, 4)),
 					Status:        1,
 					Exp:           0,
 					RecoverRemain: 1800,

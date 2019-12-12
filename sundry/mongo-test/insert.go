@@ -7,6 +7,7 @@ import (
 	"context"
 	model2 "golearn/sundry/mongo-test/model"
 	"golearn/util"
+	"golearn/util/randutil"
 	"math"
 	"strconv"
 )
@@ -50,7 +51,7 @@ func insertRole(id string, stuNum int) model2.Role {
 		Prof:          int16(i),
 		Status:        int16(i),
 		Exp:           10,
-		RecoverRemain: int64(util.RandInt(1000, 1800)),
+		RecoverRemain: int64(randutil.RandInt(1000, 1800)),
 	}
 	_, err := collection.InsertOne(ctx, role)
 	util.MustNil(err)
@@ -73,7 +74,7 @@ func insertTest() {
 		UI64    uint64
 		Object  *struct{}
 	}{
-		Id:      util.RandInt(10000, 99999),
+		Id:      randutil.RandInt(10000, 99999),
 		F32:     100.1,
 		F64:     100.2,
 		B:       false,

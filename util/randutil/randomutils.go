@@ -1,7 +1,7 @@
 // Time        : 2019/06/25
 // Description :
 
-package util
+package randutil
 
 import (
 	"math/rand"
@@ -9,12 +9,21 @@ import (
 	"time"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
+var r = newRandSys()
+
+type randSys struct{}
+
+func newRandSys() randSys {
+	rand.Seed(time.Now().Unix())
+	return randSys{}
+}
+
+func (r randSys) RandInt(min, max int) int {
+	return rand.Intn(max-min+1) + min
 }
 
 func RandInt(min, max int) int {
-	return rand.Intn(max-min+1) + min
+	return r.RandInt(min, max)
 }
 
 // 从切片中随机获取N个元素

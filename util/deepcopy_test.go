@@ -16,3 +16,36 @@ func TestDeepCopy(t *testing.T) {
 	fmt.Println(dst)
 	fmt.Println(src)
 }
+
+var jsonStr = []byte(`{
+	"code": 0,
+	"info": "123",
+	"data": {
+		"code": 0,
+		"info": "123",
+		"data": {
+			"captcha_id": "123456",
+			"number": "654321"
+		}
+	}
+}`)
+
+//获取验证码响应参数
+type YfGetCaptchaResponse struct {
+	Code uint   `json:"code"`
+	Info string `json:"info"`
+	Data struct {
+		Code uint   `json:"code"`
+		Info string `json:"info"`
+		Data struct {
+			CaptchaId string `json:"captcha_id"`
+			Captcha   string `json:"number"`
+		}
+	}
+}
+
+func TestUnmarshal(t *testing.T) {
+	var resp YfGetCaptchaResponse
+	Unmarshal(jsonStr, &resp)
+	fmt.Println(resp)
+}

@@ -6,6 +6,7 @@ package graphql
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 var allField = `
@@ -27,4 +28,8 @@ func TestCreate(t *testing.T) {
 		create(Name:"sss1",BeautyNo:12){` + allField + `}
 	}`
 	fmt.Println(ExecQuery(mutation))
+}
+
+func TestNow(t *testing.T) {
+	fmt.Println(time.Now().Unix())
 }

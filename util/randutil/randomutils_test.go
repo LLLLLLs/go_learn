@@ -1,7 +1,7 @@
 // Time        : 2019/09/19
 // Description :
 
-package util
+package randutil
 
 import (
 	"fmt"
