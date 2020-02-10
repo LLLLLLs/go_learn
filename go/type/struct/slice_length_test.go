@@ -6,6 +6,7 @@ package _struct
 import (
 	"fmt"
 	"testing"
+	"time"
 	"unsafe"
 )
 
@@ -22,4 +23,19 @@ func TestLength(t *testing.T) {
 	fmt.Println(unsafe.Sizeof(s3))
 	fmt.Println(unsafe.Sizeof(s4))
 	fmt.Println(unsafe.Sizeof(s5))
+}
+
+func TestMapLength(t *testing.T) {
+	var m = make(map[int]int)
+	fmt.Println("空map[int]int:", unsafe.Sizeof(m))
+	m[1] = 1
+	fmt.Println("添加一个元素m[1]=1:", unsafe.Sizeof(m))
+	var elem = Aggregation{}
+	fmt.Println(unsafe.Sizeof(elem))
+	var ptr = &elem
+	fmt.Println(unsafe.Sizeof(ptr))
+	var list = []int{1, 2, 3}
+	fmt.Println(unsafe.Sizeof(list))
+
+	fmt.Println(time.Unix(1576684453, 0))
 }

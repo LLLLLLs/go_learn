@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"golearn/util"
 	"testing"
+	"time"
 )
 
 func TestGetConfig(t *testing.T) {
@@ -50,4 +51,8 @@ func TestGetConfigFromJson(t *testing.T) {
 	InitConfigFromFile("/viper/config.json")
 	fmt.Println(viper.Get("Cd"))
 	fmt.Println(viper.Get("Length"))
+}
+
+func TestGetTime(t *testing.T) {
+	fmt.Println(time.Now().Unix())
 }

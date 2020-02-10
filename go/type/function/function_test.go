@@ -6,6 +6,7 @@ package function
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestFunc(t *testing.T) {
@@ -43,4 +44,9 @@ func TestTraceWithFuncForPC(t *testing.T) {
 
 func TestTraceWithFrames(t *testing.T) {
 	TraceWithFrames()
+}
+
+func TestNow(t *testing.T) {
+	//1579574329191
+	fmt.Println(time.Unix(1579574329, 0).String())
 }

@@ -32,5 +32,5 @@ func TestSliceInterface(t *testing.T) {
 }
 
 func nilTest(models ...interface{}) {
-	fmt.Println(models[0] != nil)
+	fmt.Println(models[0] == nil)
 }

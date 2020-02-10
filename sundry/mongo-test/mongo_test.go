@@ -18,12 +18,24 @@ func TestMain(m *testing.M) {
 
 func TestInsertStudent(t *testing.T) {
 	insertStudent(model2.StudentValue{
-		Id:            "1234",
-		Name:          "li si",
+		Id:            "1111",
+		Name:          "wang lu",
 		BeautyNo:      1,
 		Sex:           2,
 		Talent:        3,
-		Power:         999,
+		Power:         600,
+		Prof:          2,
+		Status:        2,
+		Exp:           10,
+		RecoverRemain: 1673,
+	})
+	insertStudent(model2.StudentValue{
+		Id:            "2222",
+		Name:          "wang qi",
+		BeautyNo:      1,
+		Sex:           2,
+		Talent:        3,
+		Power:         688,
 		Prof:          2,
 		Status:        2,
 		Exp:           10,
@@ -86,4 +98,8 @@ func TestInsertMap(t *testing.T) {
 
 func TestQueryMap(t *testing.T) {
 	queryMap()
+}
+
+func TestQueryMax(t *testing.T) {
+	queryMax()
 }

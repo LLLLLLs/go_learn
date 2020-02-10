@@ -95,3 +95,43 @@ func queryMap() {
 	util.MustNil(err)
 	fmt.Println(mm)
 }
+
+func queryMax() {
+	ctx := context.Background()
+	collection := client.Database("test").Collection("student")
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"power": bson.M{
+					"$gt": 550,
+					"$lt": 700,
+				},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "$power",
+				"doc": bson.M{
+					"$push": "$$ROOT",
+				},
+			},
+		},
+		{
+			"$sort": bson.M{
+				"power": -1,
+			},
+		},
+		{
+			"$limit": 1,
+		},
+	}
+	cur, err := collection.Aggregate(ctx, pipeline)
+	util.MustNil(err)
+	for cur.Next(ctx) {
+		var result struct {
+			Doc []model.StudentValue
+		}
+		err = cur.Decode(&result)
+		fmt.Printf("%+v\n", result.Doc)
+	}
+}
