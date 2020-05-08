@@ -8,6 +8,7 @@ import (
 	"golearn/util"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFields(t *testing.T) {
@@ -54,6 +55,20 @@ const (
 	K
 )
 
+const (
+	AA = 1 << iota
+	BB
+	CC
+	DD
+	EE = 8
+	FF
+)
+
 func TestIota(t *testing.T) {
 	fmt.Println(A, B, C, D, E, F, G, H, I, J, K)
+	fmt.Println(AA, BB, CC, DD, EE, FF)
+}
+
+func TestTime(t *testing.T) {
+	fmt.Println(time.Unix(1587265882, 0))
 }

@@ -18,7 +18,7 @@ func CalcPiWithRand() {
 		}
 		return false
 	}
-	var totalCount = 10000000
+	var totalCount = 100000000
 	var inCircleCount int
 	for i := 0; i < totalCount; i++ {
 		x, y := rand.Float64(), rand.Float64()

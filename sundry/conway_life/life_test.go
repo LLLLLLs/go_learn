@@ -14,25 +14,26 @@ func TestNextStep(t *testing.T) {
 	// X X . X
 	// X . X .
 	// . X . .
-	board := [][]bool{
-		{false, true, true, false},
-		{true, true, false, true},
-		{true, false, true, false},
-		{false, true, false, false},
-	}
+	//board := [][]bool{
+	//	{false, true, true, false},
+	//	{true, true, false, true},
+	//	{true, false, true, false},
+	//	{false, true, false, false},
+	//}
 	// X .
 	// X X
 	// X X
-	//board := [][]bool{
-	//	{true, false},
-	//	{true, true},
-	//	{true, true},
-	//}
+	board := [][]bool{
+		{true, false},
+		{true, true},
+		{true, true},
+	}
 	board = formatBoard(board)
+	printBoard(board)
 	for len(board) != 0 {
-		printBoard(board)
 		board = NextStep(board)
 		time.Sleep(time.Millisecond * 300)
+		printBoard(board)
 	}
 }
 

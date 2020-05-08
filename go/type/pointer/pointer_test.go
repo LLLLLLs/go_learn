@@ -5,6 +5,7 @@ package pointer
 
 import (
 	"fmt"
+	"golearn/go/type/pointer/private"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -59,4 +60,53 @@ func TestPointHeadOrTail(t *testing.T) {
 	a := struct{}{}
 	b := struct{}{}
 	fmt.Println(a == b)
+}
+
+type ptrInfo struct {
+	typ  unsafe.Pointer
+	data unsafe.Pointer
+}
+
+type s1 struct {
+	A int
+}
+
+type s2 struct {
+	B string
+}
+
+func TestPtr(t *testing.T) {
+	var x = 124
+
+	var y = "123"
+	xp := (*ptrInfo)(unsafe.Pointer(&x))
+	fmt.Println(xp)
+	yp := (*ptrInfo)(unsafe.Pointer(&y))
+	yp.typ = xp.typ
+	yp.data = xp.data
+	fmt.Printf("%+v\n", y)
+}
+
+func TestPtr2(t *testing.T) {
+	s := s1{A: 1}
+	//s1p := (*ptrInfo)(unsafe.Pointer(&s))
+
+	ptr2 := unsafe.Pointer(uintptr(unsafe.Pointer(&s)) + unsafe.Sizeof(s))
+	//s2p := (*ptrInfo)(ptr2)
+	//s2p.typ = s1p.typ
+	s2d := (*s1)(ptr2)
+	s2d.A = 100
+	//fmt.Println(*ptr2)
+	list := (*[2]s1)(unsafe.Pointer(&s))
+	fmt.Println(*list)
+}
+
+// 修改结构体私有变量
+func TestPrivate(t *testing.T) {
+	a := private.NewA(1, "123")
+	aa := (*int)(unsafe.Pointer(&a))
+	*aa = 100
+	ab := (*string)(unsafe.Pointer(uintptr(unsafe.Pointer(&a)) + unsafe.Sizeof(int(0))))
+	*ab = "hello"
+	fmt.Printf("%+v\n", a)
 }

@@ -216,7 +216,12 @@ func selectDrop() {
 }
 
 func main() {
-	fmt.Println(int64(12345678901) * int64(1234567890))
+	fmt.Println(int64(12345678901) * int64(1))
+	defer fmt.Println(1)
+	for {
+		a := 2
+		_ = a
+	}
 }
 
 func chanWithContext() {

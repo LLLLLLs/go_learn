@@ -1,5 +1,9 @@
 // Time        : 2019/11/08
-// Description :
+// Description : 某个点下一时刻的状态由该点附近8格的存活数决定：
+// 令x=存活数，
+// if x < 2 || x > 3 then die;
+// if x == 2 then stay last status;
+// if x == 3 then alive;
 
 package conwaylife
 

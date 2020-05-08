@@ -16,6 +16,10 @@ func TestTimeout(t *testing.T) {
 	<-ctx.Done()
 }
 
+func TestCtxWithTimeOutNest(t *testing.T) {
+	timeOutNest()
+}
+
 func TestWithValue(t *testing.T) {
 	ctx := context.Background()
 	setCtx(ctx, "my context")
@@ -25,4 +29,9 @@ func TestWithValue(t *testing.T) {
 
 func setCtx(ctx context.Context, value interface{}) {
 	ctx = context.WithValue(ctx, "value", value)
+}
+
+func TestNewContext(t *testing.T) {
+	ctx := newContext()
+	_ = ctx
 }

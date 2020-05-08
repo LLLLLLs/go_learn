@@ -5,6 +5,7 @@ package _map
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -36,4 +37,25 @@ func TestFuncMap(t *testing.T) {
 	m := map[int]bool{1: true}
 	f(m)
 	fmt.Println(m)
+}
+
+func TestSyncMap(t *testing.T) {
+	sm := sync.Map{}
+	sm.Store(1, 1)
+	sm.Store("abc", "cba")
+	sm.Store(nil, nil)
+	fmt.Println(sm.Load(nil))
+	sm.Range(func(key, value interface{}) bool {
+		fmt.Println(key, value)
+		return true
+	})
+	fmt.Printf("%065b\n", ^uintptr(0))
+}
+
+func TestMapExpand(t *testing.T) {
+	m := make(map[int]int, 0)
+	for i := 0; i < 100; i++ {
+		m[i] = i
+		fmt.Printf("%p\t%v\n", m, m)
+	}
 }

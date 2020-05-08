@@ -73,3 +73,12 @@ func TestInitRand(t *testing.T) {
 	fmt.Println(rand.ExpFloat64())
 	fmt.Println(rand.NormFloat64())
 }
+
+func TestCryptoRand(t *testing.T) {
+	buf := make([]byte, 8)
+	_, err := rand.Read(buf)
+	if err != nil {
+		panic(err) // out of randomness, should never happen
+	}
+	fmt.Printf("%x\n", buf)
+}

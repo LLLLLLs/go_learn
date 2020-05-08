@@ -66,3 +66,23 @@ func (t *Type2) Sum() float64 {
 func (t *Type2) Ptr() {
 	fmt.Printf("%p\n", t)
 }
+
+type sWithMap struct {
+	m map[int]int
+}
+
+func (s sWithMap) add(key int) {
+	s.m[key]++
+}
+
+func (s *sWithMap) addPtr(key int) {
+	s.m[key]++
+}
+
+type sWithPtr struct {
+	m *sWithMap
+}
+
+func (s sWithPtr) add(key int) {
+	s.m.addPtr(key)
+}

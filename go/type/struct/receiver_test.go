@@ -58,3 +58,22 @@ func TestReceiverPtr(t *testing.T) {
 	fmt.Printf("%p\n", &t2)
 	t2.Ptr()
 }
+
+func TestStructWithMapOrPtr(t *testing.T) {
+	s := sWithMap{m: map[int]int{}}
+	fmt.Println(s)
+	s.add(1)
+	fmt.Println("s.add(1)", s)
+	s.addPtr(2)
+	fmt.Println("s.addPtr(2)", s)
+
+	s2 := sWithPtr{m: &s}
+	fmt.Println(s2, s2.m)
+	s2.add(3)
+	fmt.Println("a2.add(3)", s2, s2.m)
+
+	for i := 0; i < 100; i++ {
+		s.add(i)
+		fmt.Println(s)
+	}
+}

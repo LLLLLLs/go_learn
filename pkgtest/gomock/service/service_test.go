@@ -4,6 +4,7 @@
 package service
 
 import (
+	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	repomock "golearn/pkgtest/gomock/repo-mock"
@@ -51,4 +52,23 @@ func TestService_Method(t *testing.T) {
 	// 这里应该先看到Service获取数据成功的输出，然后是更新成功的输出
 	err = service.UpdateGetTest("1", "value111")
 	ast.Nil(err)
+}
+
+var index = 0
+
+func next() int {
+	index++
+	return index
+}
+
+func TestReturn(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	svc := repomock.NewMockRepository(ctrl)
+	svc.EXPECT().Get(gomock.Any()).Return(next(), true).AnyTimes()
+
+	fmt.Println(svc.Get("1")) // 1 true
+	fmt.Println(svc.Get("1")) // 1 true
+	fmt.Println(svc.Get("1")) // 1 true
+	fmt.Println(svc.Get("1")) // 1 true
+	// gomock会缓存结果
 }
