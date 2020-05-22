@@ -54,7 +54,7 @@ func newModel(i int) po.RunningTotal {
 		Id:         fmt.Sprintf("%s%d", "rt", i),
 		ServerId:   1,
 		Type:       uint16(i % 100),
-		BelongTo:   fmt.Sprintf("%s%d", "belong", i),
+		BelongTo:   fmt.Sprintf("%s%d", "belong", i/100),
 		Value:      int64(i),
 		UpdateTime: int64(i),
 		Extend:     nil,
@@ -70,15 +70,27 @@ func insertN(count int) {
 	tx.Commit()
 }
 
-func BenchmarkGet(b *testing.B) {
-	n := 500000
-	insertN(n)
-	b.ResetTimer()
-	tx := memdb.DB().Txn(false)
-	for i := 0; i < b.N; i++ {
-		rt := newModel(i % n)
-		data, err := tx.First("RunningTotal", "type_belong", rt.Type, rt.BelongTo)
-		util.MustNil(err)
-		_ = data.(po.RunningTotal)
-	}
+func TestGet(t *testing.T) {
+	insertN(1)
+	tx := memdb.Tx{Txn: memdb.DB().Txn(false)}
+	rt := newModel(0)
+	rt.BelongTo = ""
+	has, err := tx.Get(&rt)
+	ast := assert.New(t)
+	ast.True(has)
+	ast.Nil(err)
+	fmt.Println(rt)
+}
+
+func TestFind(t *testing.T) {
+	insertN(5000)
+	tx := memdb.Tx{Txn: memdb.DB().Txn(false)}
+	result := make([]po.RunningTotal, 0)
+	err := tx.WithCol("Type").Find(po.RunningTotal{
+		Type:     0,
+		BelongTo: "belong0",
+	}, &result)
+	ast := assert.New(t)
+	ast.Nil(err)
+	fmt.Println(result)
 }

@@ -8,6 +8,31 @@ import (
 	"testing"
 )
 
+type UnionPosition int16
+
+const (
+	Leader UnionPosition = 1 << iota
+	DeputyLeader
+	Elite
+	Regular
+)
+
+func (pos UnionPosition) In(poss ...UnionPosition) bool {
+	var mix UnionPosition
+	for _, p := range poss {
+		if mix&p == 1 {
+			continue
+		}
+		mix += p
+	}
+	return pos&(mix) == 1
+}
+
+func TestIn(t *testing.T) {
+	fmt.Println(Leader.In(Leader, DeputyLeader, Elite))
+	fmt.Println(Leader.In(DeputyLeader, Elite))
+}
+
 func TestBitOperation(t *testing.T) {
 	a := uint8(0b10011110)
 	b := uint8(0b11110101)
@@ -16,14 +41,14 @@ func TestBitOperation(t *testing.T) {
 	xor := a ^ b
 	not := ^a
 	fmt.Printf("a = %b , b = %b\n", a, b)
-	fmt.Printf("a and b = (a & b) %b\n", and)
-	fmt.Printf("a or  b = (a | b) %b\n", or)
-	fmt.Printf("a xor b = (a ^ b) %08b\n", xor)
-	fmt.Printf("  not a = (  ^ a) %08b\n", not)
+	fmt.Printf("a and b = (%b &  %b) = %b\n", a, b, and)
+	fmt.Printf("a or  b = (%b |  %b) = %b\n", a, b, or)
+	fmt.Printf("a xor b = (%b ^  %b) = %08b\n", a, b, xor)
+	fmt.Printf("  not a = (         ^  %b) = %08b\n", a, not)
 	// &^ = bit clear
 	// 将b中为1的位对应a的位清零，a中其余位不变
 	bc := a &^ b
-	fmt.Printf("a bc  b = (a &^ b) %08b\n", bc)
+	fmt.Printf("a bc  b = (%b &^ %b) = %08b\n", a, b, bc)
 
 	fmt.Println()
 	c := uint8(0b10000111)

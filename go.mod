@@ -2,6 +2,7 @@ module golearn
 
 require (
 	github.com/PuerkitoBio/goquery v1.5.0
+	github.com/disiqueira/gotree v1.0.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/go-xorm/xorm v0.7.6
 	github.com/golang/mock v1.3.1

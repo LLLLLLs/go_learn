@@ -59,3 +59,15 @@ func TestMapExpand(t *testing.T) {
 		fmt.Printf("%p\t%v\n", m, m)
 	}
 }
+
+func TestMapComplex(t *testing.T) {
+	m := make(map[complex64]int)
+	m[1+1i] = 100
+	fmt.Println(m[1+1i])
+	x := complex64(1 + 2i)
+	fmt.Println(real(x), imag(x))
+	a, b := 1, 2
+	x = complex(float32(a), float32(b))
+	fmt.Println(x)
+	fmt.Println(real(x), imag(x))
+}

@@ -16,7 +16,14 @@ var (
 	schema = &memdb.DBSchema{
 		Tables: map[string]*memdb.TableSchema{},
 	}
+	indexCols = make(indexesCols) // table --> indexes --> cols
 )
+
+type indexesCols map[string]map[string][]string
+
+func (ic indexesCols) cols(table, index string) []string {
+	return ic[table][index]
+}
 
 func RegisterSchema(table interface{}) {
 	t := reflect.TypeOf(table)
@@ -37,11 +44,12 @@ func RegisterSchema(table interface{}) {
 			ig.addIndex(indexes[j], t.Field(i))
 		}
 	}
-	tbs := &memdb.TableSchema{
+	indexSchema, indexCol := ig.result()
+	schema.Tables[t.Name()] = &memdb.TableSchema{
 		Name:    t.Name(),
-		Indexes: ig.result(),
+		Indexes: indexSchema,
 	}
-	schema.Tables[t.Name()] = tbs
+	indexCols[t.Name()] = indexCol
 }
 
 func DB() *memdb.MemDB {

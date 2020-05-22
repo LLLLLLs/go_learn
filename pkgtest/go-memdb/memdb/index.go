@@ -40,8 +40,9 @@ func (ig *IndexGenerator) addIndex(name string, t reflect.StructField) {
 	ig.indexes[name] = list
 }
 
-func (ig IndexGenerator) result() map[string]*memdb.IndexSchema {
+func (ig IndexGenerator) result() (map[string]*memdb.IndexSchema, map[string][]string) {
 	indexSchemas := make(map[string]*memdb.IndexSchema)
+	indexCols := make(map[string][]string)
 	if ig.pk == nil {
 		panic("table must provide pk")
 	}
@@ -51,6 +52,7 @@ func (ig IndexGenerator) result() map[string]*memdb.IndexSchema {
 		Unique:       true,
 		Indexer:      indexSchema(*ig.pk),
 	}
+	indexCols["id"] = []string{ig.pk.Name}
 	for i := range ig.fk {
 		indexSchemas[ig.fkName(ig.fk[i])] = &memdb.IndexSchema{
 			Name:         ig.fkName(ig.fk[i]),
@@ -58,12 +60,16 @@ func (ig IndexGenerator) result() map[string]*memdb.IndexSchema {
 			Unique:       false,
 			Indexer:      indexSchema(ig.fk[i]),
 		}
+		indexCols[ig.fkName(ig.fk[i])] = []string{ig.fk[i].Name}
 	}
 	for name, list := range ig.indexes {
 		indexes := make([]memdb.Indexer, len(list))
+		cols := make([]string, len(list))
 		for i := range list {
 			indexes[i] = indexSchema(list[i])
+			cols[i] = list[i].Name
 		}
+		indexCols[name] = cols
 		indexSchemas[name] = &memdb.IndexSchema{
 			Name:         name,
 			AllowMissing: false,
@@ -74,7 +80,7 @@ func (ig IndexGenerator) result() map[string]*memdb.IndexSchema {
 			},
 		}
 	}
-	return indexSchemas
+	return indexSchemas, indexCols
 }
 
 func (ig IndexGenerator) fkName(t reflect.StructField) string {

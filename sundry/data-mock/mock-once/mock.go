@@ -143,29 +143,27 @@ func (m *mockManager) consumer(ctx context.Context, UniqueIdManyChan chan []inte
 	wgConsumer.Add(consumerGoNum)
 
 	for i := 0; i < consumerGoNum; i++ {
-		go util.WithRecover(
-			func() {
-				for {
-					select {
-					case dataItemList, ok := <-UniqueIdManyChan:
-						if !ok {
-							wgConsumer.Done()
-							return
-						}
-						// 插入数据
-						_, err := m.coll.InsertMany(ctx, dataItemList)
-						if err != nil {
-							fmt.Printf("err:%v\n", err)
-							m.remain += len(dataItemList)
-						} else {
-							m.process += len(dataItemList)
-						}
-					default:
-						time.Sleep(time.Millisecond)
+		go util.WithRecover(func() {
+			for {
+				select {
+				case dataItemList, ok := <-UniqueIdManyChan:
+					if !ok {
+						wgConsumer.Done()
+						return
 					}
+					// 插入数据
+					_, err := m.coll.InsertMany(ctx, dataItemList)
+					if err != nil {
+						fmt.Printf("err:%v\n", err)
+						m.remain += len(dataItemList)
+					} else {
+						m.process += len(dataItemList)
+					}
+				default:
+					time.Sleep(time.Millisecond)
 				}
-			},
-		)
+			}
+		})
 	}
 	wgConsumer.Wait()
 	fmt.Printf("----元素插入数据库完毕 数据库进度%d/%d-----\n", m.process, m.total)

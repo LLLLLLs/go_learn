@@ -3,7 +3,7 @@
 
 package myhash
 
-const size_default = 2
+const DefaultSize = 2
 
 // 键值对
 type slot struct {
@@ -23,9 +23,9 @@ type hash struct {
 
 func newHash() *hash {
 	h := &hash{
-		ht:     [2][]*slot{make([]*slot, size_default), nil},
+		ht:     [2][]*slot{make([]*slot, DefaultSize), nil},
 		count:  0,
-		size:   size_default,
+		size:   DefaultSize,
 		expend: -1,
 	}
 	h.f = func(i int) int {

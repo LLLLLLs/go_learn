@@ -14,9 +14,12 @@ import (
 )
 
 const (
-	dbUri          = "mongodb://root:LS#asdfa1e3zef@dds-2zef2ff8e79f49741.mongodb.rds.aliyuncs.com:3717,dds-2zef2ff8e79f49742.mongodb.rds.aliyuncs.com:3717/admin?replicaSet=mgset-21366747" // 数据库地址
-	dbName         = "global_storage_1040"                                                                                                                                                   // 数据库名称
-	collectionName = "user_server_info_data"                                                                                                                                                 // 集合名称
+	dbUri = "mongodb://root:LS#asdfa1e3zef@" +
+		"dds-2zef2ff8e79f49741.mongodb.rds.aliyuncs.com:3717," +
+		"dds-2zef2ff8e79f49742.mongodb.rds.aliyuncs.com:3717" +
+		"/admin?replicaSet=mgset-21366747" // 数据库地址
+	dbName         = "global_storage_1040"   // 数据库名称
+	collectionName = "user_server_info_data" // 集合名称
 
 	//totalCount = int64(900000) // 需要插入元素的总量
 
@@ -160,7 +163,6 @@ func ConsumerManyPool(ctx context.Context, collection *mongo.Collection, UniqueI
 	for i := 0; i < consumerGoNum; i++ {
 		go func(ctx context.Context, collection *mongo.Collection, UniqueIdManyChan chan []interface{}) {
 			gameOver := false
-		FORLOOP:
 			for {
 				select {
 				case dataItemList, ok := <-UniqueIdManyChan:
@@ -178,7 +180,7 @@ func ConsumerManyPool(ctx context.Context, collection *mongo.Collection, UniqueI
 				}
 				if gameOver {
 					wgConsumer.Done()
-					break FORLOOP
+					return
 				}
 			}
 		}(ctx, collection, UniqueIdManyChan)

@@ -74,20 +74,20 @@ var (
 	xx         = []int{1, 2, 3, 4, 5}
 	yy         = []int{2, 3, 4, 5, 6, 7}
 	zz         = []int{3, 4, 5, 6, 7, 8, 9}
-	ii, jj, kk = 0, 0, 0
+	ii, jj, kk = -1, -1, -1
 )
 
 func Random() int {
 	ii++
 	jj++
 	kk++
-	if ii == len(xx)-1 {
+	if ii == len(xx) {
 		ii = 0
 	}
-	if jj == len(yy)-1 {
+	if jj == len(yy) {
 		jj = 0
 	}
-	if kk == len(zz)-1 {
+	if kk == len(zz) {
 		kk = 0
 	}
 	return xx[ii] * yy[jj] * zz[kk]
