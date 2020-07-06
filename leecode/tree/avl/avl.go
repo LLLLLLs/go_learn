@@ -1,5 +1,5 @@
 // Time        : 2019/07/15
-// Description : 平衡二叉树 //TODO 删除节点
+// Description : 平衡二叉树
 
 package avl
 
@@ -71,12 +71,42 @@ func (a *AVLNode) insert(node *AVLNode) {
 	}
 }
 
+func (a *AVLNode) Remove(key int) *AVLNode {
+	return balance(a.remove(key))
+}
+
+func (a *AVLNode) remove(key int) *AVLNode {
+	if key < a.key && a.left == nil ||
+		key > a.key && a.right == nil ||
+		key != a.key && a.left == nil && a.right == nil {
+		return a
+	}
+	if a.left == nil && a.right == nil {
+		return nil
+	}
+	if a.key == key {
+		if a.right == nil {
+			return a.left
+		}
+		a.right.insert(a.left)
+		return a.right
+	}
+	if key < a.key {
+		a.left = a.left.remove(key)
+	} else {
+		a.right = a.right.remove(key)
+	}
+	return a
+}
+
+// 节点在数的坐标位置(实际上是二位数组的坐标，x标识行，y标识列）
 type nodePos struct {
 	x      int
 	y      int
-	origin int
+	origin int // 以根节点对称的左节点y值，用于计算gap
 }
 
+// 计算与子节点的间隔
 func (p nodePos) gap() int {
 	if p.origin%2 == 0 {
 		return p.origin / 2
@@ -85,6 +115,7 @@ func (p nodePos) gap() int {
 	}
 }
 
+// 左孩子坐标
 func (p nodePos) left() nodePos {
 	return nodePos{
 		x:      p.x + p.gap(),
@@ -93,6 +124,7 @@ func (p nodePos) left() nodePos {
 	}
 }
 
+// 右孩子坐标
 func (p nodePos) right() nodePos {
 	return nodePos{
 		x:      p.x + p.gap(),
@@ -102,7 +134,7 @@ func (p nodePos) right() nodePos {
 }
 
 func (a *AVLNode) print() {
-	depth := a.depth()
+	depth := depth(a)
 	if depth == 1 {
 		fmt.Println(a.key)
 		return
@@ -132,32 +164,27 @@ func generateTree(node *AVLNode, pos nodePos, result [][]string) {
 	}
 	if node.left != nil {
 		for i := 1; i <= pos.gap()-1; i++ {
-			result[pos.x+i][pos.y-i-1] = "/"
+			result[pos.x+i][(pos.y - i - 1)] = "/"
 		}
 		generateTree(node.left, pos.left(), result)
 	}
 	if node.right != nil {
 		for i := 1; i <= pos.gap()-1; i++ {
-			result[pos.x+i][pos.y+i-1] = "\\"
+			result[pos.x+i][(pos.y + i - 1)] = "\\"
 		}
 		generateTree(node.right, pos.right(), result)
 	}
 }
 
-func (a *AVLNode) depth() int {
-	if a.left == nil && a.right == nil {
-		return 1
+func depth(a *AVLNode) int {
+	if a == nil {
+		return 0
 	}
-	if a.left == nil {
-		return a.right.depth() + 1
-	}
-	if a.right == nil {
-		return a.left.depth() + 1
-	}
-	return max(a.left.depth(), a.right.depth()) + 1
+	return max(depth(a.left), depth(a.right)) + 1
 }
 
 func llHandle(root *AVLNode) *AVLNode {
+	fmt.Println("ll", root.key)
 	left := root.left
 	root.left = left.right
 	left.right = root
@@ -165,6 +192,7 @@ func llHandle(root *AVLNode) *AVLNode {
 }
 
 func rrHandle(root *AVLNode) *AVLNode {
+	fmt.Println("rr", root.key)
 	right := root.right
 	root.right = right.left
 	right.left = root

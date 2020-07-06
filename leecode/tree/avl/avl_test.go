@@ -31,4 +31,19 @@ func TestAvl(t *testing.T) {
 	avl = avl.Insert(NewNode(7, 7))
 	avl.print()
 
+	fmt.Println("删除11")
+	avl = avl.Remove(11)
+	avl.print()
+
+	fmt.Println("删除9")
+	avl = avl.Remove(9)
+	avl.print()
+
+	fmt.Println("删除8")
+	avl = avl.Remove(8)
+	avl.print()
+
+	fmt.Println("删除6")
+	avl = avl.Remove(6)
+	avl.print()
 }

@@ -151,3 +151,13 @@ func TestSliceCopy(t *testing.T) {
 	b[0] = 2
 	fmt.Println(a)
 }
+
+func TestSliceIter(t *testing.T) {
+	var slice = []int{1, 2, 3, 4, 5}
+	var toSlice = make([]*int, len(slice))
+	for i, v := range slice { // i:int; v:*int
+		toSlice[i] = &v
+	}
+	fmt.Println(slice)
+	fmt.Println(toSlice)
+}

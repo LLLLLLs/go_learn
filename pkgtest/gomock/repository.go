@@ -3,6 +3,8 @@
 
 package gomock
 
+import _ "github.com/golang/mock/mockgen/model"
+
 //go:generate mockgen -destination=repo-mock/repo.go -package=repomock -source repository.go
 //go:generate mockgen -destination=repo-mock/repo.go -package=repomock golearn/pkgtest/gomock Repository
 type Repository interface {
