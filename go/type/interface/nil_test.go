@@ -34,3 +34,45 @@ func TestSliceInterface(t *testing.T) {
 func nilTest(models ...interface{}) {
 	fmt.Println(models[0] == nil)
 }
+
+type AB interface {
+	A
+	B
+}
+
+type A interface {
+	A()
+}
+
+type B interface {
+	B()
+}
+
+type a struct{}
+
+func (a a) A() {}
+
+type b struct{}
+
+func (b b) B() {}
+
+func GetAB() AB {
+	return nil
+}
+
+func GetIA() A {
+	return nil
+}
+
+func GetA() *a {
+	return nil
+}
+
+func TestGetNil(t *testing.T) {
+	x := GetIA()
+	fmt.Println(x == nil)
+	x = GetAB()
+	fmt.Println(x == nil)
+	x = GetA()
+	fmt.Println(x == nil)
+}

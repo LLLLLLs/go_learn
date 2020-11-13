@@ -12,17 +12,17 @@ type DI struct {
 	values      map[reflect.Type]interface{}
 }
 
-func NewDI() DI {
-	return DI{
+func NewDI() *DI {
+	return &DI{
 		constructor: make(map[reflect.Type]interface{}),
 		values:      make(map[reflect.Type]interface{}),
 	}
 }
 
-var _errType = reflect.TypeOf((*error)(nil)).Elem()
+var errType = reflect.TypeOf((*error)(nil)).Elem()
 
 func isErr(t reflect.Type) bool {
-	return t.Implements(_errType)
+	return t.Implements(errType)
 }
 
 func (di *DI) Provide(constructor ...interface{}) {
@@ -50,6 +50,10 @@ func (di *DI) Get(model interface{}) interface{} {
 	if ok {
 		return v
 	}
+	return di.create(typ)
+}
+
+func (di *DI) create(typ reflect.Type) interface{} {
 	ctor, ok := di.constructor[typ]
 	if !ok {
 		panic("no such constructor")
@@ -72,5 +76,4 @@ func (di *DI) Get(model interface{}) interface{} {
 		}
 	}
 	panic("no value")
-
 }

@@ -39,3 +39,10 @@ func TestMapLength(t *testing.T) {
 
 	fmt.Println(time.Unix(1576684453, 0))
 }
+
+func TestRemoveElem(t *testing.T) {
+	list := []int{1, 2, 3, 4, 5}
+	index := 5
+	list = append(list[:index-1], list[index:]...)
+	fmt.Println(list)
+}

@@ -3,6 +3,8 @@
 
 package float
 
+import "math"
+
 func addFloat() {
 	const (
 		x float64 = 1.1
@@ -29,4 +31,12 @@ func addZero() {
 		y += 0
 		y -= 0
 	}
+}
+
+func float64ToInt64(f64 float64) int64 {
+	bigger := f64 >= math.MaxInt64
+	if bigger {
+		return math.MaxInt64
+	}
+	return int64(f64)
 }

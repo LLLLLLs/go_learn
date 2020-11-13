@@ -5,6 +5,7 @@ package string
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -13,4 +14,10 @@ func TestString(t *testing.T) {
 	([]byte)(str)[1] = 'b'
 	fmt.Printf("%p\n", &str)
 	fmt.Printf("%p\n", ([]byte)(str))
+}
+
+func TestSplit(t *testing.T) {
+	str := "hello;"
+	list := strings.Split(str, ";")
+	fmt.Println(list, len(list))
 }

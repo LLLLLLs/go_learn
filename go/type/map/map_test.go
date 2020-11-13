@@ -71,3 +71,25 @@ func TestMapComplex(t *testing.T) {
 	fmt.Println(x)
 	fmt.Println(real(x), imag(x))
 }
+
+type s struct {
+	A int
+}
+
+func TestModify(t *testing.T) {
+	m := make(map[int]s)
+	for i := 0; i < 10; i++ {
+		m[i] = s{A: i}
+	}
+	fmt.Println(m)
+	for k, v := range m {
+		v.A += k
+	}
+	fmt.Println(m)
+	for k, v := range m {
+		v.A += k
+		m[k] = v
+	}
+	fmt.Println(m)
+	fmt.Println(m)
+}

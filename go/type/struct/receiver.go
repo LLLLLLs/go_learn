@@ -3,7 +3,10 @@
 
 package _struct
 
-import "fmt"
+import (
+	"fmt"
+	"unsafe"
+)
 
 type Type1 struct {
 	a int
@@ -85,4 +88,65 @@ type sWithPtr struct {
 
 func (s sWithPtr) add(key int) {
 	s.m.addPtr(key)
+}
+
+type tWithArray10 struct {
+	array [10]int
+}
+
+func (t tWithArray10) set(index, value int) {
+	t.array[index] = value
+}
+
+func (t tWithArray51024) valueReceiver() int64 {
+	return t.h
+}
+
+func (t *tWithArray51024) pointReceiver() int64 {
+	return t.h
+}
+
+type tWithArray51024 struct {
+	array  [5 * 1024]int64
+	gg     bool
+	h      int64
+	hjj    byte
+	a      int
+	array2 [5 * 1024]int64
+}
+
+func (t tWithArray51024) value() tWithArray51024 {
+	return t
+}
+
+func (t *tWithArray51024) point() *tWithArray51024 {
+	return t
+}
+
+type tWithMap struct {
+	m map[int]struct{}
+}
+
+func (t tWithMap) value(i int) unsafe.Pointer {
+	t.m[i] = struct{}{}
+	return unsafe.Pointer(&t.m)
+}
+
+func (t *tWithMap) point(i int) unsafe.Pointer {
+	t.m[i] = struct{}{}
+	return unsafe.Pointer(&t.m)
+}
+
+type tWithSlice struct {
+	s []int
+}
+
+func (t tWithSlice) value(n int) unsafe.Pointer {
+	t.s = append(t.s, n)
+	return unsafe.Pointer(&t.s)
+}
+
+func (t *tWithSlice) point(n int) unsafe.Pointer {
+	t.s = append(t.s, n)
+	return unsafe.Pointer(&t.s)
 }

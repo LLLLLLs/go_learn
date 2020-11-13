@@ -25,10 +25,9 @@ func NewTs(p1 pkg1.Pkg1Interface, p2 pkg2.Pkg2Interface) TestStruct {
 }
 
 func TestExample(t *testing.T) {
-	di := stupiddi.NewDI()
-	di.Provide(impl1.NewImpl, impl2.NewImpl)
-	di.Provide(NewTs)
-	ts := di.Get(TestStruct{}).(TestStruct)
+	stupiddi.Provide(impl1.NewImpl, impl2.NewImpl)
+	stupiddi.Provide(NewTs)
+	ts := stupiddi.Get(TestStruct{}).(TestStruct)
 	ts.pkg1.Pkg1()
 	ts.pkg2.Pkg2()
 }

@@ -6,49 +6,8 @@ package _struct
 import (
 	"fmt"
 	"testing"
+	"unsafe"
 )
-
-func BenchmarkValue(b *testing.B) {
-	str := ""
-	for i := 0; i < 1000; i++ {
-		str += "hello "
-	}
-	s := Type1{
-		a: 1,
-		b: 2,
-		c: 100.0,
-		d: str,
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.A()
-		s.B()
-		s.C()
-		s.D()
-		s.Sum()
-	}
-}
-
-func BenchmarkPointer(b *testing.B) {
-	str := ""
-	for i := 0; i < 1000; i++ {
-		str += "hello "
-	}
-	s := Type2{
-		a: 1,
-		b: 2,
-		c: 100.0,
-		d: str,
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.A()
-		s.B()
-		s.C()
-		s.D()
-		s.Sum()
-	}
-}
 
 func TestReceiverPtr(t *testing.T) {
 	t1 := Type1{}
@@ -75,5 +34,59 @@ func TestStructWithMapOrPtr(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		s.add(i)
 		fmt.Println(s)
+	}
+}
+
+func TestArray10(t *testing.T) {
+	s := tWithArray10{array: [10]int{}}
+	s2 := s
+	s2.array[1] = 100
+	fmt.Println(s)
+	fmt.Println(s2)
+	s.set(1, 1)
+	fmt.Println(s)
+}
+
+func TestMap(t *testing.T) {
+	var ori, cpy unsafe.Pointer
+	vm := tWithMap{m: make(map[int]struct{}, 5)}
+	for i := 0; i < 10; i++ {
+		cpy = vm.value(i)
+		ori = unsafe.Pointer(&vm.m)
+		if cpy != ori {
+			fmt.Printf("value %d, ori:%v, cpy:%v, %v\n", i, ori, cpy, vm.m)
+		}
+	}
+	pm := tWithMap{m: make(map[int]struct{}, 5)}
+	for i := 0; i < 10; i++ {
+		cpy = pm.point(i)
+		ori = unsafe.Pointer(&pm.m)
+		if cpy != ori {
+			fmt.Printf("value %d, ori:%v, cpy:%v, %v\n", i, ori, cpy, vm.m)
+		}
+	}
+}
+
+func TestSlice(t *testing.T) {
+	vs := tWithSlice{s: make([]int, 0, 5)}
+	prevP := unsafe.Pointer(&vs.s)
+	nowP := prevP
+	for i := 0; i < 10; i++ {
+		nowP = vs.value(i)
+		if prevP != nowP {
+			fmt.Printf("value %d\n", i)
+			fmt.Println(vs.s)
+		}
+		prevP = nowP
+	}
+	ps := tWithSlice{s: []int{}}
+	prevP = unsafe.Pointer(&ps.s)
+	nowP = prevP
+	for i := 0; i < 10; i++ {
+		nowP = ps.point(i)
+		if prevP != nowP {
+			fmt.Printf("point %d\n", i)
+		}
+		prevP = nowP
 	}
 }

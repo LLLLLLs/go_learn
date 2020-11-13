@@ -5,6 +5,8 @@ package float
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"math"
 	"testing"
 )
 
@@ -46,3 +48,53 @@ func TestPrintFloat(t *testing.T) {
 //111 0101 1011 1100 1101 0001 1011
 //
 //110 1011 0111 1001 1010 0011 0011 010 1 1
+
+func TestPrintFloat2(t *testing.T) {
+	fmt.Printf("%.64f\n", 0.2)
+	fmt.Printf("%.64f\n", 0.1)
+	fmt.Printf("%.64f\n", 0.2+0.1)
+	fmt.Printf("%.64f\n", 0.3)
+	a := 0.1
+	b := 0.2
+	fmt.Println(a + b)
+	fmt.Printf("%.64f\n", a+b)
+	fmt.Printf("%.64f\n", 0.5)
+	fmt.Printf("%b\n", 0.2)
+	fmt.Printf("%b\n", 0.1)
+	fmt.Printf("%b\n", 0.5)
+}
+
+func TestPrintFloat3(t *testing.T) {
+	a := 0.1
+	b := 0.2
+	fmt.Printf("%.54f\n", a+b)
+	fmt.Printf("%.54f\n", 0.1+0.2)
+	fmt.Printf("%.54f\n", (a+b)*1e10)
+	fmt.Printf("%.54f\n", (0.1+0.2)*1e1)
+	fmt.Printf("%.54f\n", a*1e1+b*1e1)
+}
+
+func TestFloat64ToInt64(t *testing.T) {
+	a := int64(math.MaxInt64)
+	b := int64(math.MaxInt64)
+	c := int64(float64(a) * float64(b))
+	fmt.Println(c)
+	d := int64(1)
+	fmt.Println(float64(a) + float64(d))
+
+	ast := assert.New(t)
+	e := float64ToInt64(float64(math.MaxInt64) + float64(100))
+	ast.Equal(int64(math.MaxInt64), e)
+	f := float64ToInt64(float64(math.MaxInt64) - float64(100))
+	ast.Equal(int64(math.MaxInt64-100), f)
+}
+
+func TestTruncate(t *testing.T) {
+	a := 101
+	b := 0.8
+	c := int64(200)
+	d := int64(float64(a)*b) * c
+	fmt.Println(d)
+	e := int64(math.Floor(float64(101)*0.8)) * 200
+	fmt.Println(e)
+}
