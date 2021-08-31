@@ -16,9 +16,9 @@ func second() error {
 	return errors.Wrap(first(), "second")
 }
 
-func third() error {
-	return errors.Wrap(second(), "third")
-}
+//func third() error {
+//	return errors.Wrap(second(), "third")
+//}
 
 type Error struct {
 	errCode uint8

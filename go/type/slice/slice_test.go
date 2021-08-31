@@ -15,6 +15,8 @@ func TestBase(t *testing.T) {
 
 func TestAppend(t *testing.T) {
 	sliceAppend()
+	s1 := append([]int(nil), 1)
+	fmt.Println(s1)
 }
 
 func TestSort(t *testing.T) {
@@ -160,4 +162,42 @@ func TestSliceIter(t *testing.T) {
 	}
 	fmt.Println(slice)
 	fmt.Println(toSlice)
+}
+
+func TestTrimNum(t *testing.T) {
+	slice := []int{1, 2, 3, 4, 5}
+	newSlice1 := trimNum(slice, 3)
+	newSlice2 := trimNum(slice, 5)
+	newSlice3 := trimNum(newSlice1, 4)
+	fmt.Println(slice)
+	fmt.Println(newSlice1)
+	fmt.Println(newSlice2)
+	fmt.Println(newSlice3)
+}
+
+func trimNum(list []int, num int) []int {
+	for i := range list {
+		if list[i] == num {
+			list = append(list[:i], list[i+1:]...)
+			break
+		}
+	}
+	return list
+}
+
+func TestTrimNum1(t *testing.T) {
+	slice := []int{1, 2, 3, 4, 5}
+	slice = append(slice[:2], slice[3:]...)
+	fmt.Println(slice)
+}
+
+func TestSliceNil(t *testing.T) {
+	var slice []int
+	fmt.Println(isNil(slice))
+	slice = make([]int, 0)
+	fmt.Println(isNil(slice))
+}
+
+func isNil(s []int) bool {
+	return s == nil
 }

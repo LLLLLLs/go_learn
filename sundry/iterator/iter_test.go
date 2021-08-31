@@ -6,6 +6,7 @@ package iterator
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -32,5 +33,19 @@ func TestIsNil(t *testing.T) {
 }
 
 func getItem() Item {
+	return nil
+}
+
+func TestStructNil(t *testing.T) {
+	it := GetItem()
+	UseItem(it)
+}
+
+func UseItem(i Item) {
+	fmt.Println(i == nil)
+	fmt.Println(reflect.ValueOf(i).IsNil())
+}
+
+func GetItem() *item {
 	return nil
 }

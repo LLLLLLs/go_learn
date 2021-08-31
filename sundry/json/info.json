@@ -1,0 +1,186 @@
+{
+  "offspring": [
+    {
+      "id": "2s4t80qlg05n",
+      "attr": {
+        "name": "哈提#54161",
+        "power": 1000,
+        "quality": 3,
+        "gender": 0,
+        "profession": 2,
+        "image_no": 1
+      },
+      "grant_armband_time": 1606098509146,
+      "lieutenant_belong":,
+      "status": 2,
+      "finish_time": 1606361694684,
+      "marry_time_after_cancel": 0,
+      "spouse": {
+        "role_name":,
+        "add_attr": 0,
+        "marriage_time": 0,
+        "attr":
+      }
+    },
+    {
+      "id": "5dvij4b0swcr",
+      "attr": {
+        "name": "海姆达尔#76378",
+        "power": 1000,
+        "quality": 3,
+        "gender": 0,
+        "profession": 1,
+        "image_no": 3
+      },
+      "grant_armband_time": 1606098509146,
+      "lieutenant_belong":,
+      "status": 2,
+      "finish_time": 1606361694684,
+      "marry_time_after_cancel": 0,
+      "spouse": {
+        "role_name":,
+        "add_attr": 0,
+        "marriage_time": 0,
+        "attr":
+      }
+    },
+    {
+      "id": "2vo8piwzgbdo",
+      "attr": {
+        "name": "芬雷尔#77462",
+        "power": 1000,
+        "quality": 3,
+        "gender": 1,
+        "profession": 3,
+        "image_no": 3
+      },
+      "grant_armband_time": 1606101781835,
+      "lieutenant_belong":,
+      "status": 2,
+      "finish_time": 1606361694684,
+      "marry_time_after_cancel": 0,
+      "spouse": {
+        "role_name":,
+        "add_attr": 0,
+        "marriage_time": 0,
+        "attr":
+      }
+    },
+    {
+      "id": "3yzzq17twwbx",
+      "attr": {
+        "name": "弗丽嘉#73425",
+        "power": 1000,
+        "quality": 3,
+        "gender": 0,
+        "profession": 2,
+        "image_no": 1
+      },
+      "grant_armband_time": 1606098509146,
+      "lieutenant_belong":,
+      "status": 7,
+      "finish_time": 1606361694684,
+      "marry_time_after_cancel": 0,
+      "spouse": {
+        "role_name": "lls",
+        "add_attr": 1000,
+        "marriage_time": 1606102645476,
+        "attr": {
+          "name": "芬雷尔#21592",
+          "power": 1000,
+          "quality": 3,
+          "gender": 1,
+          "profession": 1,
+          "image_no": 1
+        }
+      }
+    },
+    {
+      "id": "7g594kx66bio",
+      "attr": {
+        "name": "西芙#11316",
+        "power": 1000,
+        "quality": 3,
+        "gender": 0,
+        "profession": 3,
+        "image_no": 3
+      },
+      "grant_armband_time": 1606098509146,
+      "lieutenant_belong":,
+      "status": 7,
+      "finish_time": 1606361694684,
+      "marry_time_after_cancel": 0,
+      "spouse": {
+        "role_name": "lls",
+        "add_attr": 1000,
+        "marriage_time": 1606102544350,
+        "attr": {
+          "name": "高姆#99133",
+          "power": 1000,
+          "quality": 3,
+          "gender": 1,
+          "profession": 1,
+          "image_no": 2
+        }
+      }
+    },
+    {
+      "id": "5vdmp5gfl3z5",
+      "attr": {
+        "name": "赫娅#38390",
+        "power": 1000,
+        "quality": 3,
+        "gender": 1,
+        "profession": 2,
+        "image_no": 3
+      },
+      "grant_armband_time": 1606098509146,
+      "lieutenant_belong":,
+      "status": 7,
+      "finish_time": 1606359149959,
+      "marry_time_after_cancel": 0,
+      "spouse": {
+        "role_name": "lls",
+        "add_attr": 1000,
+        "marriage_time": 1606099982050,
+        "attr": {
+          "name": "艾沃尔#38344",
+          "power": 1000,
+          "quality": 3,
+          "gender": 0,
+          "profession": 1,
+          "image_no": 2
+        }
+      }
+    },
+    {
+      "id": "gnfd8qpr9xe",
+      "attr": {
+        "name": "西芙#11417",
+        "power": 1000,
+        "quality": 3,
+        "gender": 1,
+        "profession": 1,
+        "image_no": 1
+      },
+      "grant_armband_time": 1606101781835,
+      "lieutenant_belong":,
+      "status": 6,
+      "finish_time": 1606361694684,
+      "marry_time_after_cancel": 0,
+      "spouse": {
+        "role_name": "lls",
+        "add_attr": 2000,
+        "marriage_time": 1606102707796,
+        "attr": {
+          "name": "哈提#70301",
+          "power": 1000,
+          "quality": 3,
+          "gender": 1,
+          "profession": 3,
+          "image_no": 3
+        }
+      }
+    }
+  ]
+}

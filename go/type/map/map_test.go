@@ -5,8 +5,10 @@ package _map
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestMap(t *testing.T) {
@@ -92,4 +94,148 @@ func TestModify(t *testing.T) {
 	}
 	fmt.Println(m)
 	fmt.Println(m)
+}
+
+func TestRandMap(t *testing.T) {
+	m := make(map[int]struct{})
+	for i := 0; i < 10; i++ {
+		m[i] = struct{}{}
+	}
+	total := make(map[int]int)
+	for i := 0; i < 10000; i++ {
+		index := rand.Intn(len(m))
+		for k := range m {
+			if index == 0 {
+				total[k]++
+				break
+			}
+			index--
+		}
+	}
+	fmt.Println(total)
+}
+
+var m = map[int]int{}
+
+func TestMapLoop(t *testing.T) {
+	initMap()
+	go read()
+	write()
+	time.Sleep(time.Second)
+}
+
+func initMap() {
+	for i := 0; i < 10; i++ {
+		m[10+i] = 10 + i
+	}
+}
+
+func read() {
+	for k, v := range m {
+		fmt.Println(k, v)
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func write() {
+	for i := 0; i < 10; i++ {
+		m[i] = i
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+// 切片去重
+func RemoveRepeatedElement(arr []string) (newArr []string) {
+	length := len(arr)
+	result := make([]string, 0, length)
+	temp := map[string]struct{}{}
+	for i := 0; i < length; i++ {
+		str := arr[i]
+		if _, ok := temp[str]; !ok { // 如果字典中找不到元素，ok=false，!ok为true，就往切片中append元素。
+			temp[str] = struct{}{}
+			result = append(result, str)
+		}
+	}
+	return result
+}
+
+func TestConcurrentAppend(t *testing.T) {
+	arr := []string{"hello", "world"}
+	for i := 0; i < 100; i++ {
+		go func() {
+			arr = append(arr, "hello")
+			fmt.Println(arr)
+			arr = RemoveRepeatedElement(arr)
+		}()
+	}
+	time.Sleep(5 * time.Second)
+}
+
+func TestSA(b *testing.T) {
+	var locker sync.WaitGroup
+	for j := 0; j < 10; j++ {
+		arr := []string{"123", "1234", "12345", "12356", "1", "2"}
+		for i := 0; i < 30000; i++ {
+			locker.Add(1)
+			go func() {
+				RemoveRepeatedElement(arr)
+				locker.Done()
+			}()
+			go func() {
+				arr = append(arr, "123")
+			}()
+		}
+	}
+	locker.Wait()
+}
+
+func TestSyncSlice(b *testing.T) {
+	var locker sync.WaitGroup
+	for j := 0; j < 10; j++ {
+		arr := newSS("123", "1234", "12345", "12356", "1", "2")
+		for i := 0; i < 30000; i++ {
+			locker.Add(1)
+			go func() {
+				arr.RemoveRepeatedElement()
+				locker.Done()
+			}()
+			go func() {
+				arr.Append("123")
+			}()
+		}
+	}
+	locker.Wait()
+}
+
+type SyncSlice struct {
+	data []interface{}
+	lock *sync.RWMutex
+}
+
+func newSS(data ...interface{}) *SyncSlice {
+	return &SyncSlice{
+		data: data,
+		lock: &sync.RWMutex{},
+	}
+}
+
+func (s *SyncSlice) Append(i interface{}) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.data = append(s.data, i)
+}
+
+func (s *SyncSlice) RemoveRepeatedElement() []interface{} {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	length := len(s.data)
+	result := make([]interface{}, 0, length)
+	temp := map[interface{}]struct{}{}
+	for _, d := range s.data {
+		if _, ok := temp[d]; !ok { // 如果字典中找不到元素，ok=false，!ok为true，就往切片中append元素。
+			temp[d] = struct{}{}
+			result = append(result, d)
+		}
+	}
+	return result
 }

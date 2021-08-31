@@ -8,3 +8,9 @@ func MustNil(err error) {
 		panic(err)
 	}
 }
+
+func MustTrue(b bool) {
+	if !b {
+		panic("must be true")
+	}
+}

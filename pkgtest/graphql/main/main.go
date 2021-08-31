@@ -19,27 +19,27 @@ func printReminder() {
 }
 
 func main() {
-	//printReminder()
-	//var purpose int
-	//_, err := fmt.Scanln(&purpose)
-	//utils.OkOrPanic(err)
-	//for {
-	//	switch purpose {
-	//	case 1:
-	//		create()
-	//	case 2:
-	//		train()
-	//	case 3:
-	//		reject()
-	//	case 4:
-	//		list()
-	//	default:
-	//		return
-	//	}
-	//	printReminder()
-	//	_, err := fmt.Scanln(&purpose)
-	//	utils.OkOrPanic(err)
-	//}
+	// printReminder()
+	// var purpose int
+	// _, err := fmt.Scanln(&purpose)
+	// util.MustNil(err)
+	// for {
+	// 	switch purpose {
+	// 	case 1:
+	// 		create()
+	// 	case 2:
+	// 		train()
+	// 	case 3:
+	// 		reject()
+	// 	case 4:
+	// 		list()
+	// 	default:
+	// 		return
+	// 	}
+	// 	printReminder()
+	// 	_, err := fmt.Scanln(&purpose)
+	// 	util.MustNil(err)
+	// }
 	http.HandleFunc("/graphql", func(writer http.ResponseWriter, request *http.Request) {
 		data, err := ioutil.ReadAll(request.Body)
 		util.MustNil(err)

@@ -76,3 +76,9 @@ func TestGetNil(t *testing.T) {
 	x = GetA()
 	fmt.Println(x == nil)
 }
+
+func TestInterfaceAst(t *testing.T) {
+	var num interface{}
+	num = uint(123)
+	fmt.Println(num.(int))
+}
