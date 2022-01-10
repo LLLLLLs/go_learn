@@ -21,9 +21,23 @@ var stepMap = map[int][][]int{
 	2: {{1, 1}, {2}},
 }
 
+var (
+	Exported   = 1
+	unExported = 2
+	_          = Exported   // 无法定义未使用的变量
+	_          = unExported // 无法定义未使用的变量
+)
+
 type kv struct {
 	k int
 	v string
+}
+
+func clause() int {
+	cla := func(a, b, c int) int {
+		return a + b + c
+	}
+	return cla(1, 2, 3)
 }
 
 func sliceSeparate() {
@@ -206,7 +220,7 @@ func selectDrop() {
 		select {
 		case ch <- "paper":
 			fmt.Println("manager : send ack")
-			//runtime.Gosched()
+			// runtime.Gosched()
 		default:
 			fmt.Println("manager : drop")
 		}
@@ -446,7 +460,7 @@ func testGoroutine(q chan int) {
 		close(exit)
 		for {
 			if true {
-				println("Looping!") //Second
+				println("Looping!") // Second
 			}
 		}
 	}()
@@ -567,8 +581,8 @@ func calPower(a, b, c float64) {
 	if delta <= 0 {
 		panic("wrong input")
 	}
-	x1 := (-b + math.Sqrt(float64(delta))) / (2 * a)
-	x2 := (-b - math.Sqrt(float64(delta))) / (2 * a)
+	x1 := (-b + math.Sqrt(delta)) / (2 * a)
+	x2 := (-b - math.Sqrt(delta)) / (2 * a)
 	fmt.Printf("x1 = %.2f , x2 = %.2f\n", x1, x2)
 }
 
@@ -658,7 +672,7 @@ func printY(b B) {
 
 func testSortStr(str string) {
 	arr := []rune(str)
-	//arr := strings.Split(str, "")
+	// arr := strings.Split(str, "")
 	sort.Slice(arr, func(i, j int) bool {
 		return arr[i] < arr[j]
 	})
@@ -859,7 +873,7 @@ func testQSort() {
 	start1 := Now()
 	betterQSort(list, 0, len(list)-1)
 	qtime := Now() - start1
-	//fmt.Println(list)
+	// fmt.Println(list)
 	fmt.Println("time:", qtime)
 }
 
@@ -917,7 +931,7 @@ func compQAndBSort() {
 	qs := qsort(list)
 	_ = qs
 	qtime := Now() - start1
-	//time.Sleep(time.Second)
+	// time.Sleep(time.Second)
 	for i := 0; i < n; i++ {
 		list[i] = rand.Intn(10000)
 	}
@@ -926,9 +940,9 @@ func compQAndBSort() {
 	goQSort(list, 0, len(list)-1)
 	lock.Wait()
 	bqtime := Now() - start2
-	//fmt.Println(list)
+	// fmt.Println(list)
 	fmt.Printf("quick sort cost\t: %dms\ngo quick sort cost\t: %dms\n", qtime, bqtime)
-	//fmt.Println(qs)
+	// fmt.Println(qs)
 }
 
 func Now() int64 {
@@ -1135,12 +1149,12 @@ func step(n int) [][]int {
 	if v, ok := stepMap[n]; ok {
 		return v
 	}
-	//if n == 1 {
+	// if n == 1 {
 	//	return [][]int{{1}}
-	//}
-	//if n == 2 {
+	// }
+	// if n == 2 {
 	//	return [][]int{{1, 1}, {2}}
-	//}
+	// }
 	result := make([][]int, 0)
 	step1, step2 := step(n-1), step(n-2)
 	for _, v := range step1 {
