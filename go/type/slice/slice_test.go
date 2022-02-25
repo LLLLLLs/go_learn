@@ -83,7 +83,7 @@ func insertList(l []int, n int) []int {
 	insertIndex := func(index int) []int {
 		first := append(l[:index], n)
 		return append(first, l[index:]...)
-		//return append(append(append([]int{}, l[:index]...), n), l[index:]...)
+		// return append(append(append([]int{}, l[:index]...), n), l[index:]...)
 	}
 	for left < right {
 		mid := (left + right) / 2
@@ -200,4 +200,11 @@ func TestSliceNil(t *testing.T) {
 
 func isNil(s []int) bool {
 	return s == nil
+}
+
+func TestEmptyLen(t *testing.T) {
+	slice := make([]int, 0)
+	slice10 := make([]int, 10)
+	fmt.Println(cap(slice))
+	fmt.Println(cap(slice10))
 }
