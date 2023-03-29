@@ -1,6 +1,6 @@
-//@author: lls
-//@time: 2020/04/30
-//@desc:
+// @author: lls
+// @time: 2020/04/30
+// @desc:
 
 package md5_test
 
@@ -13,7 +13,7 @@ import (
 
 func TestMd5(t *testing.T) {
 	h := md5.New()
-	h.Write([]byte("hello word"))
+	h.Write([]byte("用md5加密这句话"))
 	res := h.Sum(nil)
 	fmt.Println(hex.EncodeToString(res))
 

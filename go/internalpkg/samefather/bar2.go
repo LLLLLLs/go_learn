@@ -10,7 +10,6 @@ import "golearn/go/internalpkg/samefather/internal/foo"
 // 如当前目录有:go_learn/go/internal,go_learn/go/defer,go_learn/sundry
 // 那么defer目录下的文件可调用Get()函数,sundry下的文件无法调用。
 // go_learn/go/internal/foo/foo同上
-func Get() int {
+func init() {
 	foo.Foo()
-	return 123
 }

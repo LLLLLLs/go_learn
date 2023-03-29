@@ -208,3 +208,22 @@ func TestEmptyLen(t *testing.T) {
 	fmt.Println(cap(slice))
 	fmt.Println(cap(slice10))
 }
+
+type intList []int
+
+func (i *intList) append(num int) {
+	*i = append(*i, num)
+}
+
+func TestAppendIntList(t *testing.T) {
+	a := &intList{}
+	b := a
+	for i := 0; i < 100; i++ {
+		b.append(i)
+	}
+	fmt.Println(a)
+	fmt.Println(b)
+	c := *b
+	*a = c[0:0]
+	fmt.Println(a, b, c)
+}

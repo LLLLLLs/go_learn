@@ -1,11 +1,11 @@
-//@author: lls
-//@time: 2020/05/20
-//@desc:
+// @author: lls
+// @time: 2020/05/20
+// @desc:
 
 package channel
 
 func SelectDeadlock() {
-	a, b := make(chan int), make(chan int)
+	a, b := make(chan int, 1), make(chan int, 1)
 	a <- 1
 	for {
 		select {

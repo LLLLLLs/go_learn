@@ -10,6 +10,8 @@ internalpkg
 │   └── bar1.go
 │
 ├── samefather
+│   ├── another
+│   │   └── bar4.go
 │   ├── internal
 │   │   └── foo
 │   │       └── foo.go
@@ -18,5 +20,9 @@ internalpkg
 └── bar3.go
 ```
 
-针对上述工程目录，bar2(与internal直属同一个包)可以顺利调用foo中的代码，而bar1（diffather与samefather为兄弟目录）
-与bar3（samefather与internalpkg为父子目录）都无法直接调用foo中的代码
+- bar1 ×
+- bar2 √
+- bar3 ×
+- bar4 √
+
+总结，与internal包拥有公共父包的包才可调用internal里的函数

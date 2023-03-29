@@ -43,11 +43,11 @@ func TestPrintFloat(t *testing.T) {
 	fmt.Printf("%f\n", f)
 }
 
-//111 0101 1011 1100 1101 0001 0101‬
-//111 0101 1011 1100 1101 0001 1000
-//111 0101 1011 1100 1101 0001 1011
+// 111 0101 1011 1100 1101 0001 0101‬
+// 111 0101 1011 1100 1101 0001 1000
+// 111 0101 1011 1100 1101 0001 1011
 //
-//110 1011 0111 1001 1010 0011 0011 010 1 1
+// 110 1011 0111 1001 1010 0011 0011 010 1 1
 
 func TestPrintFloat2(t *testing.T) {
 	fmt.Printf("%.64f\n", 0.2)
@@ -97,4 +97,11 @@ func TestTruncate(t *testing.T) {
 	fmt.Println(d)
 	e := int64(math.Floor(float64(101)*0.8)) * 200
 	fmt.Println(e)
+}
+
+func TestFloatConvert(t *testing.T) {
+	a := int64(1596059364005777408)
+	b := float64(1596059364005777408)
+	c := int64(b)
+	fmt.Println(a, b, c)
 }

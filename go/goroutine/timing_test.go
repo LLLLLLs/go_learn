@@ -5,6 +5,7 @@ package goroutine
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -22,4 +23,22 @@ func TestTiming(t *testing.T) {
 	go f()
 	a = "hello world 3"
 	time.Sleep(time.Millisecond)
+}
+
+func TestGoroutine(t *testing.T) {
+	a := int32(0)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	subFunc := func() {
+		defer wg.Done()
+		for i := 0; i < 10000; i++ {
+			if a == a {
+				a++
+			}
+		}
+	}
+	go subFunc()
+	go subFunc()
+	wg.Wait()
+	fmt.Println(a)
 }
