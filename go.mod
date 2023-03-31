@@ -115,4 +115,4 @@ require (
 	xorm.io/builder v0.3.5 // indirect
 )
 
-go 1.18
+go 1.20

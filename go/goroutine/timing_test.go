@@ -6,6 +6,7 @@ package goroutine
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -33,7 +34,7 @@ func TestGoroutine(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < 10000; i++ {
 			if a == a {
-				a++
+				atomic.AddInt32(&a, 1)
 			}
 		}
 	}
