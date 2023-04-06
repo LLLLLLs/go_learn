@@ -94,7 +94,7 @@ func (tm *timerManager) insert(t *timer) *list.Element {
 func (tm *timerManager) stop(tt interface{}) bool {
 	tm.lock.Lock()
 	defer tm.lock.Unlock()
-	mt, has := manager.ttMapper.LoadAndDelete(tt)
+	mt, has := tm.ttMapper.LoadAndDelete(tt)
 	if !has {
 		return false
 	}
@@ -207,7 +207,7 @@ func (tm *timerManager) reset(id int64, d time.Duration, period time.Duration) b
 }
 
 func (tm *timerManager) newTimer(d time.Duration) *time.Timer {
-	mt := addTimer(d, 0)
+	mt := tm.addTimer(d, 0)
 	t := &time.Timer{
 		C: mt.c,
 	}
@@ -217,7 +217,7 @@ func (tm *timerManager) newTimer(d time.Duration) *time.Timer {
 }
 
 func (tm *timerManager) newTicker(d time.Duration) *time.Ticker {
-	mt := addTimer(d, d)
+	mt := tm.addTimer(d, d)
 	t := &time.Ticker{
 		C: mt.c,
 	}
@@ -226,23 +226,15 @@ func (tm *timerManager) newTicker(d time.Duration) *time.Ticker {
 	return t
 }
 
-func addTimer(d time.Duration, period time.Duration) *timer {
+func (tm *timerManager) addTimer(d time.Duration, period time.Duration) *timer {
 	mt := &timer{
-		id:     manager.id.Add(1),
+		id:     tm.id.Add(1),
 		when:   Now().UnixNano() + int64(d),
 		period: int64(period),
 		c:      make(chan time.Time, 1),
 	}
-	manager.add(mt)
+	tm.add(mt)
 	return mt
-}
-
-func NewTimer(d time.Duration) *time.Timer {
-	return manager.newTimer(d)
-}
-
-func NewTicker(d time.Duration) *time.Ticker {
-	return manager.newTicker(d)
 }
 
 func sendTime(c any, _ uintptr) {
