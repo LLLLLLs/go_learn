@@ -6,7 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.5.0
 	github.com/aliyun/aliyun-tablestore-go-sdk v1.7.7
 	github.com/disiqueira/gotree v1.0.0
-	github.com/gin-gonic/gin v1.7.2
+	github.com/gin-gonic/gin v1.7.7
 	github.com/go-logr/logr v1.2.2
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-redis/redis/v8 v8.11.3
