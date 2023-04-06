@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sync"
 	"time"
+	_ "unsafe"
 )
 
 func withOffset(sec int64) {
@@ -36,11 +37,7 @@ func replaceTimer() {
 		return manager.reset(mt.(*timer).id, d, 0)
 	})
 	monkey.PatchInstanceMethod(rt, "Stop", func(t *time.Timer) bool {
-		mt, has := manager.ttMapper.Load(t)
-		if !has {
-			return false
-		}
-		return manager.stop(mt.(*timer).id)
+		return manager.stop(t)
 	})
 }
 func replaceTicker() {
@@ -55,11 +52,7 @@ func replaceTicker() {
 		return
 	})
 	monkey.PatchInstanceMethod(rt, "Stop", func(t *time.Ticker) {
-		mt, has := manager.ttMapper.Load(t)
-		if !has {
-			return
-		}
-		manager.stop(mt.(*timer).id)
+		manager.stop(t)
 		return
 	})
 }

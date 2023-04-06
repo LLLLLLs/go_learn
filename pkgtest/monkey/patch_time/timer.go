@@ -202,7 +202,8 @@ func (tm *timerManager) reset(id int64, d time.Duration, period time.Duration) b
 	mt := ele.Value.(*timer)
 	mt.when = Now().UnixNano() + int64(d)
 	mt.period = int64(period)
-	tm.addNoLock(mt)
+	tm.addNoLock(mt, true)
+	tm.adjustRuntimeTimer()
 	return true
 }
 
