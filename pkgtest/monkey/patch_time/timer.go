@@ -55,7 +55,7 @@ type timerManager struct {
 	runtimeTimer *runtimeTimer
 	mTimer       map[int64]*list.Element
 	timers       *list.List
-	ttMapper     sync.Map // 映射 [*time.Timer|*time.Ticker] -> *timer Reset和Stop时用来寻找对应的timer
+	ttMapper     sync.Map // 映射 [*time.Timer|*time.Ticker] -> timer.id Reset和Stop时用来寻找对应的timer
 }
 
 func (tm *timerManager) refreshWithOffsetChanged() {
@@ -91,6 +91,28 @@ func (tm *timerManager) insert(t *timer) *list.Element {
 	return tm.timers.PushBack(t)
 }
 
+func (tm *timerManager) reset(tt interface{}, d time.Duration, period time.Duration) bool {
+	tm.lock.Lock()
+	defer tm.lock.Unlock()
+	_id, has := tm.ttMapper.Load(tt)
+	if !has {
+		return false
+	}
+	id := _id.(int64)
+	ele, has := tm.mTimer[id]
+	if !has {
+		tm.ttMapper.Delete(tt)
+		return false
+	}
+	tm.removeNoLock(id, true)
+	mt := ele.Value.(*timer)
+	mt.when = Now().UnixNano() + int64(d)
+	mt.period = int64(period)
+	tm.addNoLock(mt, true)
+	tm.adjustRuntimeTimer()
+	return true
+}
+
 func (tm *timerManager) stop(tt interface{}) bool {
 	tm.lock.Lock()
 	defer tm.lock.Unlock()
@@ -98,7 +120,7 @@ func (tm *timerManager) stop(tt interface{}) bool {
 	if !has {
 		return false
 	}
-	return tm.removeNoLock(mt.(*timer).id)
+	return tm.removeNoLock(mt.(int64))
 }
 
 func (tm *timerManager) removeNoLock(id int64, noAdjust ...bool) bool {
@@ -191,28 +213,12 @@ func (tm *timerManager) handle() (finish bool) {
 	return
 }
 
-func (tm *timerManager) reset(id int64, d time.Duration, period time.Duration) bool {
-	tm.lock.Lock()
-	defer tm.lock.Unlock()
-	ele, has := tm.mTimer[id]
-	if !has {
-		return false
-	}
-	tm.removeNoLock(id, true)
-	mt := ele.Value.(*timer)
-	mt.when = Now().UnixNano() + int64(d)
-	mt.period = int64(period)
-	tm.addNoLock(mt, true)
-	tm.adjustRuntimeTimer()
-	return true
-}
-
 func (tm *timerManager) newTimer(d time.Duration) *time.Timer {
 	mt := tm.addTimer(d, 0)
 	t := &time.Timer{
 		C: mt.c,
 	}
-	tm.ttMapper.Store(t, mt)
+	tm.ttMapper.Store(t, mt.id)
 	mt.tt = t
 	return t
 }
@@ -222,7 +228,7 @@ func (tm *timerManager) newTicker(d time.Duration) *time.Ticker {
 	t := &time.Ticker{
 		C: mt.c,
 	}
-	tm.ttMapper.Store(t, mt)
+	tm.ttMapper.Store(t, mt.id)
 	mt.tt = t
 	return t
 }

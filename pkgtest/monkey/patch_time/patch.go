@@ -30,11 +30,7 @@ func replaceTimer() {
 	t := new(time.Timer)
 	rt := reflect.TypeOf(t)
 	monkey.PatchInstanceMethod(rt, "Reset", func(t *time.Timer, d time.Duration) bool {
-		mt, has := manager.ttMapper.Load(t)
-		if !has {
-			return false
-		}
-		return manager.reset(mt.(*timer).id, d, 0)
+		return manager.reset(t, d, 0)
 	})
 	monkey.PatchInstanceMethod(rt, "Stop", func(t *time.Timer) bool {
 		return manager.stop(t)
@@ -44,11 +40,7 @@ func replaceTicker() {
 	t := new(time.Ticker)
 	rt := reflect.TypeOf(t)
 	monkey.PatchInstanceMethod(rt, "Reset", func(t *time.Ticker, d time.Duration) {
-		mt, has := manager.ttMapper.Load(t)
-		if !has {
-			return
-		}
-		manager.reset(mt.(*timer).id, d, d)
+		manager.reset(t, d, d)
 		return
 	})
 	monkey.PatchInstanceMethod(rt, "Stop", func(t *time.Ticker) {
