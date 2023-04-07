@@ -201,7 +201,7 @@ func (tm *timerManager) handle() (finish bool) {
 		return
 	}
 	t := ele.Value.(*timer)
-	t.c <- Now()
+	sendTime(t.c, 0)
 	tm.removeNoLock(t.id, true)
 	if t.period > 0 {
 		t.when += t.period
