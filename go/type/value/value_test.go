@@ -46,3 +46,22 @@ func TestValue(t *testing.T) {
 	fmt.Println(nv)
 	fmt.Println(v.ns, v.nest.ns)
 }
+
+func TestValueEqual(t *testing.T) {
+	type v struct{ a int }
+	type vv struct {
+		v v
+		b string
+	}
+	fmt.Println(v{a: 1} == v{a: 1})
+	fmt.Println(vv{v: v{a: 1}, b: "hello"} == vv{v: v{a: 1}, b: "hello"})
+
+	mm := map[v]bool{}
+	mm[v{a: 1}] = true
+	fmt.Println(mm[v{a: 1}])
+	type vvv struct{ v *v }
+	mmm := map[*vvv]bool{}
+	mmm[&vvv{v: &v{a: 1}}] = true
+	fmt.Println(mmm[&vvv{v: &v{a: 1}}])
+	fmt.Println(vvv{v: &v{a: 1}} == vvv{v: &v{a: 1}})
+}

@@ -242,35 +242,50 @@
 ## **示例：全局错误处理**
 
 ```go
+package main
+
+import "github.com/gin-gonic/gin"
+
 // 定义全局错误响应结构
 type APIResponse struct {
-Status  string      `json:"status"`
-Message string      `json:"message"`
-Data    interface{} `json:"data,omitempty"`
+	Status  string      `json:"status"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
 // 中间件统一处理错误
 func ErrorHandler() gin.HandlerFunc {
-return func (c *gin.Context) {
-c.Next()
-if len(c.Errors) > 0 {
-lastError := c.Errors.Last()
-status := lastError.StatusCode
-message := lastError.Err.Error()
-c.AbortWithStatusJSON(status, APIResponse{
-Status:  "error",
-Message: message,
-})
+	return func(c *gin.Context) {
+		c.Next()
+		if len(c.Errors) > 0 {
+			lastError := c.Errors.Last()
+			status := lastError.StatusCode
+			message := lastError.Err.Error()
+			c.AbortWithStatusJSON(status, APIResponse{
+				Status:  "error",
+				Message: message,
+			})
+		}
+	}
 }
-}
-}
+
 ```
 
 ## **Git 规范**
 
 ### **git commit规范**
 
-**提交类型**：
+#### 1.1 格式
+
+```<type>: <subject>```
+
+示例：
+
+```<fix>: fix trackBy function being invoked with incorrect scope```
+
+
+#### 1.2 type
+**提交类型**如下：
 
 - **feat**：功能特性
 - **fix**：bug 修复
@@ -278,9 +293,11 @@ Message: message,
 - **style**：代码格式修改，如空格、缩进、分号等
 - **chore**：代码重构、优化、改进
 
-**Message**
-- 提交类型都用尖括号"<>"包裹，如"\<feat\>: 新增xxx功能"
-- 描述：简单描述本次提交的内容，不超过50个字符
+提交类型使用尖括号包裹
+
+#### 1.3 subject
+
+- 描述：简单描述本次提交的内容，不超过20个字符
 
 ---
 
