@@ -20,7 +20,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.2
-	github.com/tidwall/gjson v1.2.1
+	github.com/tidwall/gjson v1.9.3
 	github.com/valyala/gozstd v1.11.0
 	go.mongodb.org/mongo-driver v1.8.2
 	go.uber.org/fx v1.18.2
@@ -96,8 +96,8 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/tidwall/match v1.0.1 // indirect
-	github.com/tidwall/pretty v1.0.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.0.2 // indirect
