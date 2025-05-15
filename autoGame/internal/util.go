@@ -1,12 +1,15 @@
 package internal
 
 import (
+	"autogame/pkg/util"
 	"bytes"
+	"fmt"
 	"github.com/go-vgo/robotgo"
 	"github.com/kbinani/screenshot"
 	"gocv.io/x/gocv"
 	"image"
 	"image/png"
+	"os/exec"
 )
 
 func Screenshoot() gocv.Mat {
@@ -36,6 +39,21 @@ func RGBAImageToMat(img *image.RGBA) gocv.Mat {
 }
 
 func Click(x, y int) {
+	clickRobotGO(x, y)
+}
+
+func quartzClick(x, y int) {
+	QuartzClick(x, y)
+}
+
+func clickApple(x, y int) {
+	script := fmt.Sprintf(`tell application "System Events" to click at {%d, %d}`, x, y)
+	cmd := exec.Command("osascript", "-e", script)
+	err := cmd.Run()
+	util.MustOK(err)
+}
+
+func clickRobotGO(x, y int) {
 	resetX, resetY := robotgo.Location()
 	robotgo.MoveClick(x, y)
 	robotgo.MoveClick(x, y)

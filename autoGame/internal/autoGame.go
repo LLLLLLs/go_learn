@@ -9,11 +9,14 @@ import (
 
 func AutoGame() {
 	Init()
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(time.Second * 2)
+	timer := time.NewTimer(time.Hour * 3)
 	for {
 		select {
 		case <-ticker.C:
 			tick()
+		case <-timer.C:
+			return
 		}
 	}
 }
@@ -61,14 +64,17 @@ func clickPoint(start image.Point, tmpl gocv.Mat) {
 	Click(center.X, center.Y)
 }
 
-func matchResult(img, tmpl gocv.Mat) (maxLoc image.Point, matched bool) {
+func matchResult(img, tmpl gocv.Mat, target ...float32) (maxLoc image.Point, matched bool) {
 	result := gocv.NewMat()
 	defer result.Close()
 	gocv.MatchTemplate(img, tmpl, &result, gocv.TmCcoeffNormed, gocv.NewMat())
 
 	var maxVal float32
 	_, maxVal, _, maxLoc = gocv.MinMaxLoc(result)
-	matched = maxVal > 0.95
+	matched = maxVal > 0.85
+	if len(target) > 0 {
+		matched = maxVal > target[0]
+	}
 	return
 }
 
@@ -76,14 +82,18 @@ func upgradeCheck(img gocv.Mat) bool {
 	if _, matched := matchResult(img, upgradeTmpl); !matched {
 		return false
 	}
-	canRefresh = nil
+	if canRefresh != nil && *canRefresh {
+		canRefresh = nil
+	}
 	for i := range skillTmpl {
 		if i > len(skillTmpl)*2/3 && refresh(img) {
 			return true
 		}
-		maxLoc, matched := matchResult(img, skillTmpl[i])
+		maxLoc, matched := matchResult(img, skillTmpl[i], 0.95)
 		if matched {
+			fmt.Println(skillPriority[i])
 			clickPoint(maxLoc, skillTmpl[i])
+			return true
 		}
 	}
 	return true
@@ -94,6 +104,7 @@ var canRefresh *bool
 
 func refresh(img gocv.Mat) bool {
 	if canRefresh == nil {
+		canRefresh = new(bool)
 		refreshLoc, *canRefresh = matchResult(img, refreshTmpl)
 	}
 	if !(*canRefresh) {
