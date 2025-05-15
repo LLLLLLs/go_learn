@@ -86,12 +86,12 @@ func upgradeCheck(img gocv.Mat) bool {
 		canRefresh = nil
 	}
 	for i := range skillTmpl {
-		if i > len(skillTmpl)*2/3 && refresh(img) {
+		if i > threshold && refresh(img) {
 			return true
 		}
 		maxLoc, matched := matchResult(img, skillTmpl[i], 0.95)
 		if matched {
-			fmt.Println(skillPriority[i])
+			fmt.Println(skillPriority[i], i, threshold)
 			clickPoint(maxLoc, skillTmpl[i])
 			return true
 		}
@@ -100,7 +100,10 @@ func upgradeCheck(img gocv.Mat) bool {
 }
 
 var refreshLoc image.Point
-var canRefresh *bool
+var canRefresh = func() *bool {
+	t := true
+	return &t
+}()
 
 func refresh(img gocv.Mat) bool {
 	if canRefresh == nil {
