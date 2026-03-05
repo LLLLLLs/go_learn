@@ -1,0 +1,20 @@
+<idea-plugin>
+    <id>com.huajian.novelreader</id>
+    <name>Reader</name>
+    <vendor email="huajian@example.com">huajian</vendor>
+
+    <description>
+        <![CDATA[
+        TXT 小说阅读器：本地书架、阅读进度、章节切换、夜间模式。
+        ]]>
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.huajian.novelreader.NovelStateService"/>
+        <toolWindow id="Reader"
+                    anchor="right"
+                    factoryClass="com.huajian.novelreader.NovelToolWindowFactory"/>
+    </extensions>
+</idea-plugin>

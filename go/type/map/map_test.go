@@ -239,3 +239,36 @@ func (s *SyncSlice) RemoveRepeatedElement() []interface{} {
 	}
 	return result
 }
+
+func TestDelete(t *testing.T) {
+	m1 := map[int]int{}
+	m2 := map[int]int{}
+	m3 := map[int]int{}
+	for i := 0; i < 10000; i++ {
+		m1[i] = i
+		m2[i] = i
+		m3[i] = i
+	}
+	list := []map[int]int{m1, m2, m3}
+	for _, v := range list {
+		for i := 0; i < 9900; i++ {
+			delete(v, i)
+		}
+	}
+	fmt.Println(m1)
+}
+
+func GetOrInitSubMap[k1, k2 comparable, v interface{}](m map[k1]map[k2]v, key k1) map[k2]v {
+	sub, ok := m[key]
+	if !ok {
+		sub = make(map[k2]v)
+		m[key] = sub
+	}
+	return sub
+}
+
+func TestGetOrInitSubMap(t *testing.T) {
+	m := make(map[string]map[string]int)
+	GetOrInitSubMap(m, "123")["456"] = 7
+	fmt.Println(m)
+}

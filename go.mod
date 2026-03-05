@@ -16,7 +16,6 @@ require (
 	github.com/gorilla/handlers v1.4.0
 	github.com/graphql-go/graphql v0.7.8
 	github.com/hashicorp/go-memdb v1.2.1
-	github.com/kbinani/screenshot v0.0.0-20250118074034-a3924b7bbc8c
 	github.com/name5566/leaf v0.0.0-20171010100004-09f6b6dfd7a6
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.8.1
@@ -39,17 +38,14 @@ require (
 	github.com/fyne-io/gl-js v0.0.0-20220119005834-d2da28d9ccfe // indirect
 	github.com/fyne-io/glfw-js v0.0.0-20220120001248-ee7290d23504 // indirect
 	github.com/fyne-io/image v0.0.0-20220602074514-4956b0afb3d2 // indirect
-	github.com/gen2brain/shm v0.1.0 // indirect
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20211213063430-748e38ca8aec // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/goki/freetype v0.0.0-20181231101311-fa8a33aabaff // indirect
 	github.com/google/flatbuffers v1.11.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
-	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
-	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/srwiley/oksvg v0.0.0-20200311192757-870daf9aa564 // indirect
