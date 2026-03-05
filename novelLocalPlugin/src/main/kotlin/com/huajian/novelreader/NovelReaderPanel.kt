@@ -20,9 +20,11 @@ import javax.swing.JList
 import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
+import javax.swing.JLabel
 import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.ListSelectionModel
+import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
@@ -35,6 +37,7 @@ class NovelReaderPanel(
     private val bookListModel = DefaultListModel<BookState>()
     private val bookList = JList(bookListModel)
     private val textArea = JTextArea()
+    private val chapterTitleLabel = JLabel("", SwingConstants.CENTER)
     private val chapterSelector = JComboBox<String>()
     private val chooseChapterButton = JButton("选择章节")
     private val prevButton = JButton("上一章")
@@ -93,6 +96,9 @@ class NovelReaderPanel(
 
     private fun buildReaderPanel() {
         readerPanel.border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        chapterTitleLabel.font = chapterTitleLabel.font.deriveFont(16f)
+        chapterTitleLabel.border = BorderFactory.createEmptyBorder(0, 0, 8, 0)
+        readerPanel.add(chapterTitleLabel, BorderLayout.NORTH)
 
         val bottomPanel = JPanel(FlowLayout(FlowLayout.LEFT))
         chapterSelector.preferredSize = Dimension(280, 28)
@@ -231,6 +237,7 @@ class NovelReaderPanel(
 
         if (currentBookPath == selected.path) {
             currentBookPath = null
+            chapterTitleLabel.text = ""
             textArea.text = ""
             chapterSelector.removeAllItems()
             showBookshelf()
@@ -269,6 +276,7 @@ class NovelReaderPanel(
         currentChapterIndex = safeIndex
 
         val chapter = parsed.chapters[safeIndex]
+        chapterTitleLabel.text = chapter.title
         val chapterText = parsed.content.substring(chapter.start, chapter.end).trim()
         textArea.text = chapterText
         textArea.caretPosition = 0
@@ -425,6 +433,7 @@ class NovelReaderPanel(
         textArea.caretColor = Color(0, 0, 0, 0)
         textArea.selectionColor = textBg
         textArea.selectedTextColor = textFg
+        chapterTitleLabel.foreground = textFg
 
         bookList.selectionBackground = listBg
         bookList.selectionForeground = listFg

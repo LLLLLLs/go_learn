@@ -50,6 +50,10 @@ kotlin {
 }
 
 tasks {
+    named<org.gradle.api.tasks.bundling.Zip>("buildPlugin") {
+        destinationDirectory.set(layout.projectDirectory)
+    }
+
     withType<JavaCompile> {
         options.release.set(21)
     }
