@@ -1,0 +1,9 @@
+<application>
+  <component name="Trusted.Paths">
+    <option name="TRUSTED_PROJECT_PATHS">
+      <map>
+        <entry key="$APPLICATION_CONFIG_DIR$/projects/GoLandWorkspace" value="true" />
+      </map>
+    </option>
+  </component>
+</application>

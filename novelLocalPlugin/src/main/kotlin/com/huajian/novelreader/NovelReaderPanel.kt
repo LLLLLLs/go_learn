@@ -5,6 +5,7 @@ import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
+import java.awt.Point
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
@@ -19,6 +20,7 @@ import javax.swing.JFileChooser
 import javax.swing.JList
 import javax.swing.JOptionPane
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JLabel
 import javax.swing.JTextArea
@@ -28,6 +30,8 @@ import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
+import javax.swing.event.PopupMenuEvent
+import javax.swing.event.PopupMenuListener
 import javax.swing.filechooser.FileNameExtensionFilter
 
 class NovelReaderPanel(
@@ -37,8 +41,10 @@ class NovelReaderPanel(
     private val bookListModel = DefaultListModel<BookState>()
     private val bookList = JList(bookListModel)
     private val textArea = JTextArea()
+    private val chapterHeaderPanel = JPanel(BorderLayout())
     private val chapterTitleLabel = JLabel("", SwingConstants.CENTER)
-    private val chapterSelector = JComboBox<String>()
+    private val bookProgressLabel = JLabel("")
+    private val chapterSelectorButton = JButton("选择章节")
     private val chooseChapterButton = JButton("选择章节")
     private val prevButton = JButton("上一章")
     private val nextButton = JButton("下一章")
@@ -52,6 +58,8 @@ class NovelReaderPanel(
 
     private val parsedCache = mutableMapOf<String, ParsedBook>()
     private val filteredChapterIndexes = mutableListOf<Int>()
+    private var chapterSelectorPopup: JPopupMenu? = null
+    private var chapterSelectorPopupList: JList<String>? = null
 
     private var currentBookPath: String? = null
     private var currentChapterIndex: Int = 0
@@ -96,17 +104,20 @@ class NovelReaderPanel(
 
     private fun buildReaderPanel() {
         readerPanel.border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        chapterHeaderPanel.border = BorderFactory.createEmptyBorder(0, 0, 8, 0)
         chapterTitleLabel.font = chapterTitleLabel.font.deriveFont(16f)
-        chapterTitleLabel.border = BorderFactory.createEmptyBorder(0, 0, 8, 0)
-        readerPanel.add(chapterTitleLabel, BorderLayout.NORTH)
+        bookProgressLabel.border = BorderFactory.createEmptyBorder(0, 12, 0, 0)
+        chapterHeaderPanel.add(chapterTitleLabel, BorderLayout.CENTER)
+        chapterHeaderPanel.add(bookProgressLabel, BorderLayout.EAST)
+        readerPanel.add(chapterHeaderPanel, BorderLayout.NORTH)
 
         val bottomPanel = JPanel(FlowLayout(FlowLayout.LEFT))
-        chapterSelector.preferredSize = Dimension(280, 28)
+        chapterSelectorButton.preferredSize = Dimension(280, 28)
         bottomPanel.add(backToShelfButton)
         bottomPanel.add(prevButton)
         bottomPanel.add(nextButton)
         bottomPanel.add(chooseChapterButton)
-        bottomPanel.add(chapterSelector)
+        bottomPanel.add(chapterSelectorButton)
         bottomPanel.add(nightModeCheckBox)
         readerPanel.add(bottomPanel, BorderLayout.SOUTH)
 
@@ -144,14 +155,7 @@ class NovelReaderPanel(
             chooseChapterFromDialog()
         }
 
-        chapterSelector.addActionListener {
-            if (updatingChapterSelector) return@addActionListener
-            val idx = chapterSelector.selectedIndex
-            if (idx >= 0) {
-                val actualIndex = filteredChapterIndexes.getOrNull(idx) ?: return@addActionListener
-                switchChapter(actualIndex)
-            }
-        }
+        chapterSelectorButton.addActionListener { showChapterSelectorPopup() }
 
         nightModeCheckBox.addActionListener {
             val enabled = nightModeCheckBox.isSelected
@@ -238,8 +242,9 @@ class NovelReaderPanel(
         if (currentBookPath == selected.path) {
             currentBookPath = null
             chapterTitleLabel.text = ""
+            bookProgressLabel.text = ""
             textArea.text = ""
-            chapterSelector.removeAllItems()
+            chapterSelectorButton.text = "选择章节"
             showBookshelf()
         }
     }
@@ -277,13 +282,13 @@ class NovelReaderPanel(
 
         val chapter = parsed.chapters[safeIndex]
         chapterTitleLabel.text = chapter.title
+        bookProgressLabel.text = "${safeIndex + 1}/${parsed.chapters.size}"
         val chapterText = parsed.content.substring(chapter.start, chapter.end).trim()
         textArea.text = chapterText
         textArea.caretPosition = 0
 
         updatingChapterSelector = true
-        val dropdownIndex = filteredChapterIndexes.indexOf(safeIndex)
-        chapterSelector.selectedIndex = dropdownIndex
+        syncChapterSelectorButtonText()
         updatingChapterSelector = false
 
         stateService.updateProgress(path, safeIndex)
@@ -291,6 +296,7 @@ class NovelReaderPanel(
         prevButton.isEnabled = safeIndex > 0
         nextButton.isEnabled = safeIndex < parsed.chapters.lastIndex
         chooseChapterButton.isEnabled = parsed.chapters.isNotEmpty()
+        chapterSelectorButton.isEnabled = parsed.chapters.isNotEmpty()
     }
 
     private fun chooseChapterFromDialog() {
@@ -312,7 +318,7 @@ class NovelReaderPanel(
             matchIndexes.addAll(matches)
 
             resultBox.removeAllItems()
-            matchIndexes.take(200).forEach { idx ->
+            matchIndexes.forEach { idx ->
                 resultBox.addItem("${idx + 1}. ${parsed.chapters[idx].title}")
             }
             val selected = matchIndexes.indexOf(currentChapterIndex)
@@ -322,6 +328,19 @@ class NovelReaderPanel(
                 resultBox.selectedIndex = 0
             }
         }
+
+        resultBox.addPopupMenuListener(object : PopupMenuListener {
+            override fun popupMenuWillBecomeVisible(e: PopupMenuEvent?) {
+                val selected = matchIndexes.indexOf(currentChapterIndex)
+                if (selected >= 0 && selected < resultBox.itemCount) {
+                    resultBox.selectedIndex = selected
+                }
+            }
+
+            override fun popupMenuWillBecomeInvisible(e: PopupMenuEvent?) = Unit
+
+            override fun popupMenuCanceled(e: PopupMenuEvent?) = Unit
+        })
 
         searchField.document.addDocumentListener(object : DocumentListener {
             override fun insertUpdate(e: DocumentEvent?) = refill(searchField.text)
@@ -363,16 +382,95 @@ class NovelReaderPanel(
 
         filteredChapterIndexes.clear()
         filteredChapterIndexes.addAll(matches)
+        syncChapterSelectorButtonText()
+    }
 
-        updatingChapterSelector = true
-        chapterSelector.removeAllItems()
-        filteredChapterIndexes.forEach { idx ->
-            val chapter = parsed.chapters[idx]
-            chapterSelector.addItem("${idx + 1}. ${chapter.title}")
-        }
+    private fun syncChapterSelectorButtonText() {
+        val path = currentBookPath ?: return
+        val parsed = parsedCache[path] ?: return
+        if (currentChapterIndex !in parsed.chapters.indices) return
+        val chapter = parsed.chapters[currentChapterIndex]
+        chapterSelectorButton.text = "${currentChapterIndex + 1}. ${chapter.title}"
+    }
+
+    private fun showChapterSelectorPopup() {
+        val path = currentBookPath ?: return
+        val parsed = parsedCache[path] ?: return
         val selectedDropdownIndex = filteredChapterIndexes.indexOf(currentChapterIndex)
-        chapterSelector.selectedIndex = selectedDropdownIndex
-        updatingChapterSelector = false
+        if (selectedDropdownIndex !in filteredChapterIndexes.indices) return
+
+        syncChapterSelectorButtonText()
+        chapterSelectorPopup?.isVisible = false
+
+        val popupItems = filteredChapterIndexes.map { idx ->
+            "${idx + 1}. ${parsed.chapters[idx].title}"
+        }.toTypedArray()
+        val popupList = JList(popupItems)
+        popupList.selectionMode = ListSelectionModel.SINGLE_SELECTION
+
+        val popup = JPopupMenu()
+        val scrollPane = JScrollPane(popupList)
+        scrollPane.border = BorderFactory.createEmptyBorder()
+        scrollPane.preferredSize = Dimension(chapterSelectorButton.width.coerceAtLeast(320), 320)
+        popup.add(scrollPane)
+        popup.addPopupMenuListener(object : PopupMenuListener {
+            override fun popupMenuWillBecomeVisible(e: PopupMenuEvent?) {
+                SwingUtilities.invokeLater {
+                    positionChapterPopupList(popupList, scrollPane, popupItems, selectedDropdownIndex)
+                }
+            }
+
+            override fun popupMenuWillBecomeInvisible(e: PopupMenuEvent?) = Unit
+
+            override fun popupMenuCanceled(e: PopupMenuEvent?) = Unit
+        })
+
+        popupList.addMouseListener(object : MouseAdapter() {
+            override fun mouseReleased(e: MouseEvent) {
+                applyPopupChapterSelection(popupList.selectedIndex)
+                popup.isVisible = false
+            }
+        })
+
+        popupList.addKeyListener(object : java.awt.event.KeyAdapter() {
+            override fun keyPressed(e: java.awt.event.KeyEvent) {
+                if (e.keyCode == java.awt.event.KeyEvent.VK_ENTER) {
+                    applyPopupChapterSelection(popupList.selectedIndex)
+                    popup.isVisible = false
+                }
+            }
+        })
+
+        chapterSelectorPopup = popup
+        chapterSelectorPopupList = popupList
+        popup.show(chapterSelectorButton, 0, chapterSelectorButton.height)
+        positionChapterPopupList(popupList, scrollPane, popupItems, selectedDropdownIndex)
+        SwingUtilities.invokeLater {
+            positionChapterPopupList(popupList, scrollPane, popupItems, selectedDropdownIndex)
+        }
+    }
+
+    private fun positionChapterPopupList(
+        popupList: JList<String>,
+        scrollPane: JScrollPane,
+        popupItems: Array<String>,
+        selectedDropdownIndex: Int
+    ) {
+        popupList.clearSelection()
+        popupList.selectedIndex = selectedDropdownIndex
+        popupList.setSelectedValue(popupItems[selectedDropdownIndex], true)
+        val cellBounds = popupList.getCellBounds(selectedDropdownIndex, selectedDropdownIndex)
+        if (cellBounds != null) {
+            scrollPane.viewport.viewPosition = Point(0, cellBounds.y.coerceAtLeast(0))
+        }
+        popupList.ensureIndexIsVisible(selectedDropdownIndex)
+        popupList.requestFocusInWindow()
+    }
+
+    private fun applyPopupChapterSelection(selectedDropdownIndex: Int) {
+        if (selectedDropdownIndex < 0) return
+        val actualIndex = filteredChapterIndexes.getOrNull(selectedDropdownIndex) ?: return
+        switchChapter(actualIndex)
     }
 
     private fun findChapterCandidates(query: String, chapters: List<Chapter>): List<Int> {
@@ -434,16 +532,18 @@ class NovelReaderPanel(
         textArea.selectionColor = textBg
         textArea.selectedTextColor = textFg
         chapterTitleLabel.foreground = textFg
+        bookProgressLabel.foreground = textFg
 
         bookList.selectionBackground = listBg
         bookList.selectionForeground = listFg
 
         bookList.background = listBg
         bookList.foreground = listFg
-        chapterSelector.background = listBg
-        chapterSelector.foreground = listFg
+        chapterSelectorButton.background = listBg
+        chapterSelectorButton.foreground = listFg
 
         bookshelfPanel.background = listBg
+        chapterHeaderPanel.background = listBg
         readerPanel.background = listBg
 
         SwingUtilities.updateComponentTreeUI(this)

@@ -256,3 +256,11 @@ func TestSlice(t *testing.T) {
 	list1 = append(list1, 1, 2, 3)
 	fmt.Println(list1)
 }
+
+func TestFormat(t *testing.T) {
+	param := []any{int16(1), int16(2)}
+	param = append(param, "hello")
+	content := "您设置于【%d, %d】的自动续矿，因为【%s】未成功续矿"
+	str := fmt.Sprintf(content, param...)
+	fmt.Println(str)
+}

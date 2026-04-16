@@ -1,7 +1,7 @@
 # reader (GoLand Plugin)
 
 一个 GoLand/IntelliJ 平台插件，用于阅读本地 `txt/epub` 小说。
-当前构建目标：`GoLand 2025.3.3`（`253.*`），默认使用本机 `/Applications/GoLand.app` 作为运行时。
+当前构建目标：`GoLand 2026.1`（`261.*`），默认使用本机 `/Applications/GoLand.app` 作为运行时。
 
 ## 已实现功能
 

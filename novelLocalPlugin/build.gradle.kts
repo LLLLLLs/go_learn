@@ -1,10 +1,10 @@
 plugins {
-    kotlin("jvm") version "2.1.21"
-    id("org.jetbrains.intellij.platform") version "2.11.0"
+    kotlin("jvm") version "2.3.20"
+    id("org.jetbrains.intellij.platform") version "2.14.0"
 }
 
 group = "com.huajian"
-version = "0.1.0"
+version = "2026.1"
 
 repositories {
     mavenCentral()
@@ -14,13 +14,15 @@ repositories {
 }
 
 dependencies {
+    testImplementation(kotlin("test"))
+
     intellijPlatform {
         val home = System.getProperty("user.home")
         val goideaHome = System.getenv("GOIDEA_HOME")?.trim()?.takeIf { it.isNotEmpty() }?.let(::File)
         val golandApp = listOf(
             goideaHome,
-            File("$home/Applications/GoLand 2025.3.3.app"),
-            File("/Applications/GoLand 2025.3.3.app"),
+            File("$home/Applications/GoLand 2026.1.app"),
+            File("/Applications/GoLand 2026.1.app"),
             File("$home/Applications/GoLand.app"),
             File("/Applications/GoLand.app")
         ).filterNotNull().firstOrNull { it.isDirectory }
@@ -33,8 +35,8 @@ dependencies {
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
-            sinceBuild = "253"
-            untilBuild = "253.*"
+            sinceBuild = "261"
+            untilBuild = "261.*"
         }
     }
 }
@@ -54,11 +56,17 @@ tasks {
         destinationDirectory.set(layout.projectDirectory)
     }
 
+    withType<Test> {
+        useJUnitPlatform()
+    }
+
     withType<JavaCompile> {
         options.release.set(21)
     }
 
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "21"
+    withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile> {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        }
     }
 }
