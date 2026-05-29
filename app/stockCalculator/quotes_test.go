@@ -57,6 +57,55 @@ func TestParseEastMoneyQuotes(t *testing.T) {
 	}
 }
 
+func TestParseStooqQuote(t *testing.T) {
+	raw := []byte("Symbol,Date,Time,Name,Close\nAAPL.US,2026-05-28,22:00:19,APPLE INC,312.51\n")
+
+	quote, err := parseStooqQuote(raw, "usaapl", "AAPL")
+	if err != nil {
+		t.Fatalf("parseStooqQuote returned error: %v", err)
+	}
+	if quote.Symbol != "usaapl" {
+		t.Fatalf("Symbol = %q, want %q", quote.Symbol, "usaapl")
+	}
+	if quote.Name != "APPLE INC" {
+		t.Fatalf("Name = %q, want %q", quote.Name, "APPLE INC")
+	}
+	if quote.Price != 312.51 {
+		t.Fatalf("Price = %v, want %v", quote.Price, 312.51)
+	}
+}
+
+func TestFetchUSQuotesUsesYahooFallback(t *testing.T) {
+	provider := &EastMoneyQuoteProvider{
+		client: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.Host == "stooq.com" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader("Symbol,Date,Time,Name,Close\nAAPL.US,N/D,N/D,AAPL.US,N/D\n")),
+					}, nil
+				}
+				if req.URL.Host == "query1.finance.yahoo.com" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"chart":{"result":[{"meta":{"symbol":"AAPL","regularMarketPrice":312.51}}],"error":null}}`)),
+					}, nil
+				}
+				t.Fatalf("unexpected host: %s", req.URL.Host)
+				return nil, nil
+			}),
+		},
+	}
+
+	quotes, err := provider.Fetch([]string{"usaapl"})
+	if err != nil {
+		t.Fatalf("Fetch returned error: %v", err)
+	}
+	if quotes["usaapl"].Price != 312.51 {
+		t.Fatalf("Price = %v, want %v", quotes["usaapl"].Price, 312.51)
+	}
+}
+
 func TestEastMoneyFetchFallsBackToNextBaseURL(t *testing.T) {
 	provider := &EastMoneyQuoteProvider{
 		client: &http.Client{

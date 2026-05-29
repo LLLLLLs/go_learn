@@ -14,6 +14,7 @@ import (
 const (
 	statePreferenceKey = "portfolio_state_v1"
 	defaultHKDRate     = 0.92
+	defaultUSDRate     = 7.20
 	moneyEpsilon       = 1e-6
 )
 
@@ -44,7 +45,9 @@ type persistedState struct {
 	InitialCapital    float64       `json:"initial_capital,omitempty"`
 	InitialCapitalCNY float64       `json:"initial_capital_cny,omitempty"`
 	InitialCapitalHKD float64       `json:"initial_capital_hkd,omitempty"`
+	InitialCapitalUSD float64       `json:"initial_capital_usd,omitempty"`
 	HKDRate           float64       `json:"hkd_rate"`
+	USDRate           float64       `json:"usd_rate,omitempty"`
 	Records           []TradeRecord `json:"records"`
 }
 
@@ -67,12 +70,15 @@ type Portfolio struct {
 
 	initialCapitalCNY float64
 	initialCapitalHKD float64
+	initialCapitalUSD float64
 	hkdRate           float64
+	usdRate           float64
 	records           []TradeRecord
 
 	positions      map[string]*Position
 	cashCNY        float64
 	cashHKD        float64
+	cashUSD        float64
 	realizedPnL    float64
 	lastRefreshAt  time.Time
 	lastRefreshErr string
@@ -82,10 +88,13 @@ type Summary struct {
 	InitialCapital    float64
 	InitialCapitalCNY float64
 	InitialCapitalHKD float64
+	InitialCapitalUSD float64
 	HKDRate           float64
+	USDRate           float64
 	Cash              float64
 	CashCNY           float64
 	CashHKD           float64
+	CashUSD           float64
 	MarketValue       float64
 	TotalAssets       float64
 	RealizedPnL       float64
@@ -127,6 +136,7 @@ type TradeSummary struct {
 func LoadPortfolio(raw string) (*Portfolio, error) {
 	p := &Portfolio{
 		hkdRate:   defaultHKDRate,
+		usdRate:   defaultUSDRate,
 		positions: make(map[string]*Position),
 	}
 
@@ -141,11 +151,15 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 
 	p.initialCapitalCNY = state.InitialCapitalCNY
 	p.initialCapitalHKD = state.InitialCapitalHKD
-	if p.initialCapitalCNY == 0 && p.initialCapitalHKD == 0 && state.InitialCapital != 0 {
+	p.initialCapitalUSD = state.InitialCapitalUSD
+	if p.initialCapitalCNY == 0 && p.initialCapitalHKD == 0 && p.initialCapitalUSD == 0 && state.InitialCapital != 0 {
 		p.initialCapitalCNY = state.InitialCapital
 	}
 	if state.HKDRate > 0 {
 		p.hkdRate = state.HKDRate
+	}
+	if state.USDRate > 0 {
+		p.usdRate = state.USDRate
 	}
 	p.records = append(p.records, state.Records...)
 
@@ -160,7 +174,9 @@ func (p *Portfolio) MarshalState() ([]byte, error) {
 	state := persistedState{
 		InitialCapitalCNY: p.initialCapitalCNY,
 		InitialCapitalHKD: p.initialCapitalHKD,
+		InitialCapitalUSD: p.initialCapitalUSD,
 		HKDRate:           p.hkdRate,
+		USDRate:           p.usdRate,
 		Records:           append([]TradeRecord(nil), p.records...),
 	}
 	p.mu.RUnlock()
@@ -182,7 +198,7 @@ func (p *Portfolio) AdjustBalanceByCurrency(amount float64, currency string, dir
 	}
 	currency = normalizePriceCurrency(currency)
 	if currency == "" {
-		return errors.New("余额币种仅支持 RMB 或 港币")
+		return errors.New("余额币种仅支持 RMB、港币或美元")
 	}
 	return p.adjustBalanceByNormalizedCurrency(direction*amount, currency)
 }
@@ -198,6 +214,17 @@ func (p *Portfolio) SetExchangeRate(hkdRate float64) error {
 	return nil
 }
 
+func (p *Portfolio) SetUSDExchangeRate(usdRate float64) error {
+	if usdRate <= 0 {
+		return errors.New("美元汇率必须大于 0")
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.usdRate = usdRate
+	return nil
+}
+
 func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, price float64, priceCurrency string) error {
 	if kind != TradeTypeBuy && kind != TradeTypeSell {
 		return errors.New("交易类型无效")
@@ -210,14 +237,14 @@ func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, pric
 	}
 	priceCurrency = normalizePriceCurrency(priceCurrency)
 	if priceCurrency == "" {
-		return errors.New("股价币种仅支持 CNY 或 HKD")
+		return errors.New("股价币种仅支持 CNY、HKD 或 USD")
 	}
 
 	security, err := normalizeSecurity(rawCode)
 	if err != nil {
 		return err
 	}
-	marketPrice, err := convertPriceToMarketCurrency(price, priceCurrency, security.Currency, p.hkdRate)
+	marketPrice, err := convertPriceToMarketCurrency(price, priceCurrency, security.Currency, p.hkdRate, p.usdRate)
 	if err != nil {
 		return err
 	}
@@ -245,7 +272,7 @@ func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, pric
 		Quantity:       quantity,
 		Price:          price,
 		MarketPrice:    marketPrice,
-		FXRate:         fxRateForCurrency(priceCurrency, p.hkdRate),
+		FXRate:         fxRateForCurrency(priceCurrency, p.hkdRate, p.usdRate),
 	}
 
 	p.records = append(p.records, record)
@@ -347,17 +374,20 @@ func (p *Portfolio) Summary() Summary {
 		})
 	}
 
-	initialCapital := p.initialCapitalCNY + p.initialCapitalHKD*p.hkdRate
-	cash := p.cashCNY + p.cashHKD*p.hkdRate
+	initialCapital := p.initialCapitalCNY + p.initialCapitalHKD*p.hkdRate + p.initialCapitalUSD*p.usdRate
+	cash := p.cashCNY + p.cashHKD*p.hkdRate + p.cashUSD*p.usdRate
 	totalAssets := cash + marketValue
 	return Summary{
 		InitialCapital:    initialCapital,
 		InitialCapitalCNY: p.initialCapitalCNY,
 		InitialCapitalHKD: p.initialCapitalHKD,
+		InitialCapitalUSD: p.initialCapitalUSD,
 		HKDRate:           p.hkdRate,
+		USDRate:           p.usdRate,
 		Cash:              cash,
 		CashCNY:           p.cashCNY,
 		CashHKD:           p.cashHKD,
+		CashUSD:           p.cashUSD,
 		MarketValue:       marketValue,
 		TotalAssets:       totalAssets,
 		RealizedPnL:       p.realizedPnL,
@@ -374,6 +404,7 @@ func (p *Portfolio) rebuildLocked() error {
 	p.positions = make(map[string]*Position)
 	p.cashCNY = p.initialCapitalCNY
 	p.cashHKD = p.initialCapitalHKD
+	p.cashUSD = p.initialCapitalUSD
 	p.realizedPnL = 0
 
 	for _, record := range p.records {
@@ -460,8 +491,17 @@ func (p *Portfolio) adjustBalanceByNormalizedCurrency(delta float64, currency st
 		if absFloat64(p.initialCapitalHKD) < moneyEpsilon {
 			p.initialCapitalHKD = 0
 		}
+	case "USD":
+		nextCash := p.cashUSD + delta
+		if nextCash < -moneyEpsilon {
+			return errors.New("减少金额超过当前美元余额")
+		}
+		p.initialCapitalUSD += delta
+		if absFloat64(p.initialCapitalUSD) < moneyEpsilon {
+			p.initialCapitalUSD = 0
+		}
 	default:
-		return errors.New("余额币种仅支持 RMB 或 港币")
+		return errors.New("余额币种仅支持 RMB、港币或美元")
 	}
 
 	return p.rebuildLocked()
@@ -473,6 +513,11 @@ func (p *Portfolio) adjustCashByCurrencyLocked(currency string, delta float64) {
 		p.cashHKD += delta
 		if absFloat64(p.cashHKD) < moneyEpsilon {
 			p.cashHKD = 0
+		}
+	case "USD":
+		p.cashUSD += delta
+		if absFloat64(p.cashUSD) < moneyEpsilon {
+			p.cashUSD = 0
 		}
 	default:
 		p.cashCNY += delta
@@ -508,10 +553,7 @@ func (p *Portfolio) sortedPositionsLocked() []*Position {
 }
 
 func (p *Portfolio) fxRateForPositionLocked(pos *Position) float64 {
-	if pos.Currency == "HKD" {
-		return p.hkdRate
-	}
-	return 1
+	return fxRateForCurrency(pos.Currency, p.hkdRate, p.usdRate)
 }
 
 func (r TradeRecord) typeLabel() string {
@@ -544,10 +586,7 @@ type Security struct {
 }
 
 func (s Security) FXRate(hkdRate float64) float64 {
-	if s.Currency == "HKD" {
-		return hkdRate
-	}
-	return 1
+	return fxRateForCurrency(s.Currency, hkdRate, defaultUSDRate)
 }
 
 func normalizePriceCurrency(raw string) string {
@@ -556,19 +595,25 @@ func normalizePriceCurrency(raw string) string {
 		return "CNY"
 	case "HKD", "港币":
 		return "HKD"
+	case "USD", "美元", "美金":
+		return "USD"
 	default:
 		return ""
 	}
 }
 
-func fxRateForCurrency(currency string, hkdRate float64) float64 {
-	if normalizePriceCurrency(currency) == "HKD" {
+func fxRateForCurrency(currency string, hkdRate float64, usdRate float64) float64 {
+	switch normalizePriceCurrency(currency) {
+	case "HKD":
 		return hkdRate
+	case "USD":
+		return usdRate
+	default:
+		return 1
 	}
-	return 1
 }
 
-func convertPriceToMarketCurrency(price float64, inputCurrency, marketCurrency string, hkdRate float64) (float64, error) {
+func convertPriceToMarketCurrency(price float64, inputCurrency, marketCurrency string, hkdRate float64, usdRate float64) (float64, error) {
 	inputCurrency = normalizePriceCurrency(inputCurrency)
 	marketCurrency = normalizePriceCurrency(marketCurrency)
 	if inputCurrency == "" || marketCurrency == "" {
@@ -577,16 +622,12 @@ func convertPriceToMarketCurrency(price float64, inputCurrency, marketCurrency s
 	if inputCurrency == marketCurrency {
 		return price, nil
 	}
-	if hkdRate <= 0 {
-		return 0, errors.New("港币汇率必须大于 0")
+	inputRate := fxRateForCurrency(inputCurrency, hkdRate, usdRate)
+	marketRate := fxRateForCurrency(marketCurrency, hkdRate, usdRate)
+	if inputRate <= 0 || marketRate <= 0 {
+		return 0, errors.New("汇率必须大于 0")
 	}
-	if inputCurrency == "HKD" && marketCurrency == "CNY" {
-		return price * hkdRate, nil
-	}
-	if inputCurrency == "CNY" && marketCurrency == "HKD" {
-		return price / hkdRate, nil
-	}
-	return 0, errors.New("暂不支持该币种转换")
+	return price * inputRate / marketRate, nil
 }
 
 func normalizeSecurity(raw string) (Security, error) {
@@ -598,14 +639,35 @@ func normalizeSecurity(raw string) (Security, error) {
 
 	prefix := ""
 	switch {
+	case strings.HasPrefix(code, "us:") || strings.HasPrefix(code, "us."):
+		prefix = "us"
+		code = code[3:]
+	case strings.HasPrefix(code, "us") && len(code) > 2 && !isDigits(code[2:]):
+		prefix = "us"
+		code = code[2:]
 	case strings.HasPrefix(code, "sh"), strings.HasPrefix(code, "sz"), strings.HasPrefix(code, "bj"), strings.HasPrefix(code, "hk"):
 		prefix = code[:2]
 		code = code[2:]
 	}
 
+	if prefix == "us" || containsLetter(code) {
+		code = strings.TrimSpace(strings.ToUpper(code))
+		code = strings.ReplaceAll(code, "-", ".")
+		if !isValidUSTicker(code) {
+			return Security{}, errors.New("美股代码只能包含字母、数字、点或连字符")
+		}
+		return Security{
+			Code:        code,
+			DisplayCode: "US:" + code,
+			Symbol:      "us" + strings.ToLower(code),
+			Market:      "美股",
+			Currency:    "USD",
+		}, nil
+	}
+
 	for _, r := range code {
 		if r < '0' || r > '9' {
-			return Security{}, errors.New("股票代码只能包含数字，或带 sh/sz/bj/hk 前缀")
+			return Security{}, errors.New("股票代码只能包含数字，或使用 sh/sz/bj/hk/us 前缀")
 		}
 	}
 
@@ -639,7 +701,7 @@ func normalizeSecurity(raw string) (Security, error) {
 	}
 
 	if prefix != "sh" && prefix != "sz" && prefix != "bj" {
-		return Security{}, errors.New("仅支持 A 股和港股代码")
+		return Security{}, errors.New("仅支持 A 股、港股和美股代码")
 	}
 
 	return Security{
@@ -649,4 +711,26 @@ func normalizeSecurity(raw string) (Security, error) {
 		Market:      "A股",
 		Currency:    "CNY",
 	}, nil
+}
+
+func containsLetter(value string) bool {
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidUSTicker(value string) bool {
+	if value == "" || len(value) > 12 {
+		return false
+	}
+	for _, r := range value {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }

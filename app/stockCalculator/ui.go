@@ -28,6 +28,7 @@ type UI struct {
 	balanceCurrencySelect *widget.Select
 	balanceCNYLabel       *widget.Label
 	balanceHKDLabel       *widget.Label
+	balanceUSDLabel       *widget.Label
 	rateInfoLabel         *widget.Label
 	codeEntry             *widget.Entry
 	recentCodeSelect      *widget.Select
@@ -170,10 +171,11 @@ func (ui *UI) buildSettingsPanel() fyne.CanvasObject {
 
 	ui.balanceAdjustEntry = widget.NewEntry()
 	ui.balanceAdjustEntry.SetPlaceHolder("输入调整金额")
-	ui.balanceCurrencySelect = widget.NewSelect([]string{"RMB", "港币"}, nil)
+	ui.balanceCurrencySelect = widget.NewSelect([]string{"RMB", "港币", "美元"}, nil)
 	ui.balanceCurrencySelect.SetSelected("RMB")
 	ui.balanceCNYLabel = widget.NewLabel("RMB: --")
 	ui.balanceHKDLabel = widget.NewLabel("港币: --")
+	ui.balanceUSDLabel = widget.NewLabel("美元: --")
 	ui.rateInfoLabel = widget.NewLabel("汇率: 加载中...")
 
 	addButton := widget.NewButton("增加", func() {
@@ -188,8 +190,6 @@ func (ui *UI) buildSettingsPanel() fyne.CanvasObject {
 	form := widget.NewForm(
 		widget.NewFormItem("余额调整", adjustRow),
 		widget.NewFormItem("余额币种", currencyRow),
-		widget.NewFormItem("RMB余额", ui.balanceCNYLabel),
-		widget.NewFormItem("港币余额", ui.balanceHKDLabel),
 	)
 
 	card := widget.NewCard("余额管理", "汇率会在打开应用时联网获取，余额调整会影响累计收益基准",
@@ -230,7 +230,7 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 	ui.tradeTypeSelect.SetSelected("买入")
 
 	ui.codeEntry = widget.NewEntry()
-	ui.codeEntry.SetPlaceHolder("A股如 600519 / sz000001，港股如 00700")
+	ui.codeEntry.SetPlaceHolder("A股如 600519，港股如 00700，美股如 AAPL / US:MSFT")
 	ui.codeEntry.OnChanged = func(value string) {
 		ui.updatePriceCurrencyByCode(value)
 	}
@@ -262,9 +262,9 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 	ui.quantityHintLabel = widget.NewLabel("买入模式下不限制股数")
 
 	ui.priceEntry = widget.NewEntry()
-	ui.priceEntry.SetPlaceHolder("按本币输入，例如 1530.50 / 398.20")
+	ui.priceEntry.SetPlaceHolder("按本币输入，例如 1530.50 / 398.20 / 180.25")
 
-	ui.priceCurrencySelect = widget.NewSelect([]string{"港币", "RMB"}, nil)
+	ui.priceCurrencySelect = widget.NewSelect([]string{"港币", "RMB", "美元"}, nil)
 	ui.priceCurrencySelect.SetSelected("港币")
 
 	submitButton := widget.NewButton("添加记录", func() {
@@ -316,7 +316,7 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 
 	card := widget.NewCard(
 		"交易记录",
-		"支持手动录入买入和平仓，A 股自动识别 sh/sz/bj，港股自动识别 hk",
+		"",
 		container.NewVBox(form, container.NewHBox(submitButton, refreshButton)),
 	)
 	return card
@@ -328,8 +328,8 @@ func (ui *UI) buildSummaryPanel() fyne.CanvasObject {
 		title string
 		unit  string
 	}{
-		{"initialCapital", "净入金", "RMB/HKD"},
-		{"cash", "现金余额", "RMB/HKD"},
+		{"initialCapital", "净入金", "RMB/HKD/USD"},
+		{"cash", "现金余额", "RMB/HKD/USD"},
 		{"marketValue", "持仓市值", "CNY"},
 		{"totalAssets", "总资产", "CNY"},
 		{"realizedPnL", "已实现盈亏", "CNY"},
@@ -390,7 +390,7 @@ func (ui *UI) buildTables() fyne.CanvasObject {
 
 	holdingsCard := widget.NewCard("当前持仓", "10 秒自动刷新现价，持仓表按股票本币展示，总资产仍按人民币汇总",
 		container.NewMax(ui.holdingsTable))
-	recordsCard := widget.NewCard("交易流水", "港股交易按录入当时的汇率折算到人民币",
+	recordsCard := widget.NewCard("交易流水", "外币交易按录入当时的汇率折算到人民币",
 		container.NewMax(ui.recordsTable))
 
 	tabs := container.NewAppTabs(
@@ -421,8 +421,8 @@ func (ui *UI) refreshView() {
 	summary := ui.portfolio.Summary()
 	ui.window.SetTitle(fmt.Sprintf("股票收益追踪计算器 - %s", ui.currentUser.Name))
 
-	ui.summaryLabels["initialCapital"].SetText(formatCurrencyBreakdown("RMB", summary.InitialCapitalCNY, "港币", summary.InitialCapitalHKD, summary.InitialCapital))
-	ui.summaryLabels["cash"].SetText(formatCurrencyBreakdown("RMB", summary.CashCNY, "港币", summary.CashHKD, summary.Cash))
+	ui.summaryLabels["initialCapital"].SetText(formatCurrencyBreakdown(summary.InitialCapitalCNY, summary.InitialCapitalHKD, summary.InitialCapitalUSD, summary.InitialCapital))
+	ui.summaryLabels["cash"].SetText(formatCurrencyBreakdown(summary.CashCNY, summary.CashHKD, summary.CashUSD, summary.Cash))
 	ui.summaryLabels["marketValue"].SetText(formatMoney(summary.MarketValue))
 	ui.summaryLabels["totalAssets"].SetText(formatMoney(summary.TotalAssets))
 	ui.summaryLabels["realizedPnL"].SetText(formatMoney(summary.RealizedPnL))
@@ -433,6 +433,9 @@ func (ui *UI) refreshView() {
 	}
 	if ui.balanceHKDLabel != nil {
 		ui.balanceHKDLabel.SetText(formatMoneyWithUnit("港币", summary.CashHKD))
+	}
+	if ui.balanceUSDLabel != nil {
+		ui.balanceUSDLabel.SetText(formatMoneyWithUnit("美元", summary.CashUSD))
 	}
 
 	ui.tableMu.Lock()
@@ -447,7 +450,7 @@ func (ui *UI) refreshView() {
 	ui.recordsTable.Refresh()
 	ui.statusLabel.SetText(buildStatus(summary))
 	if ui.rateInfoLabel != nil {
-		ui.rateInfoLabel.SetText(fmt.Sprintf("汇率: %.4f", summary.HKDRate))
+		ui.rateInfoLabel.SetText(fmt.Sprintf("HKD %.4f / USD %.4f", summary.HKDRate, summary.USDRate))
 	}
 }
 
@@ -483,6 +486,13 @@ func (ui *UI) refreshMarketData() {
 		if rate, err := ui.rateProvider.FetchHKDCNY(); err == nil {
 			if !ui.isClosing() {
 				if err := ui.portfolio.SetExchangeRate(rate); err == nil {
+					_ = ui.portfolio.SaveToFile(ui.statePath)
+				}
+			}
+		}
+		if rate, err := ui.rateProvider.FetchUSDCNY(); err == nil {
+			if !ui.isClosing() {
+				if err := ui.portfolio.SetUSDExchangeRate(rate); err == nil {
 					_ = ui.portfolio.SaveToFile(ui.statePath)
 				}
 			}
@@ -582,7 +592,7 @@ func buildRecordRows(records []TradeSummary) [][]string {
 
 func buildStatus(summary Summary) string {
 	if len(summary.Holdings) == 0 {
-		return fmt.Sprintf("暂无持仓。港股按当前汇率 %.4f 折算为人民币。", summary.HKDRate)
+		return fmt.Sprintf("暂无持仓。港股按 %.4f、美股按 %.4f 折算为人民币。", summary.HKDRate, summary.USDRate)
 	}
 	if summary.LastRefreshAt.IsZero() {
 		return "已存在持仓，等待首次行情刷新..."
@@ -590,8 +600,8 @@ func buildStatus(summary Summary) string {
 	if summary.LastRefreshErr != "" {
 		return fmt.Sprintf("最近刷新: %s，失败原因: %s", summary.LastRefreshAt.Format("2006-01-02 15:04:05"), summary.LastRefreshErr)
 	}
-	return fmt.Sprintf("最近刷新: %s，每 10 秒自动更新一次，当前港币汇率 %.4f",
-		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), summary.HKDRate)
+	return fmt.Sprintf("最近刷新: %s，每 10 秒自动更新一次，HKD/CNY %.4f，USD/CNY %.4f",
+		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), summary.HKDRate, summary.USDRate)
 }
 
 func (ui *UI) switchUser(name string) error {
@@ -686,6 +696,10 @@ func (ui *UI) updatePriceCurrencyByCode(rawCode string) {
 	}
 	if security.Currency == "CNY" {
 		ui.priceCurrencySelect.SetSelected("RMB")
+		return
+	}
+	if security.Currency == "USD" {
+		ui.priceCurrencySelect.SetSelected("美元")
 		return
 	}
 	ui.priceCurrencySelect.SetSelected("港币")
@@ -952,15 +966,18 @@ func formatMoneyWithUnit(unit string, value float64) string {
 	switch unit {
 	case "港币", "HKD":
 		return fmt.Sprintf("HK$%.2f", value)
+	case "美元", "USD":
+		return fmt.Sprintf("$%.2f", value)
 	default:
 		return fmt.Sprintf("¥%.2f", value)
 	}
 }
 
-func formatCurrencyBreakdown(primaryUnit string, primaryValue float64, secondaryUnit string, secondaryValue float64, totalCNY float64) string {
-	return fmt.Sprintf("%s  %s\n%s  %s\n折合  %s",
-		primaryUnit, formatMoneyWithUnit(primaryUnit, primaryValue),
-		secondaryUnit, formatMoneyWithUnit(secondaryUnit, secondaryValue),
+func formatCurrencyBreakdown(cnyValue float64, hkdValue float64, usdValue float64, totalCNY float64) string {
+	return fmt.Sprintf("RMB  %s\n港币  %s\n美元  %s\n折合  %s",
+		formatMoneyWithUnit("RMB", cnyValue),
+		formatMoneyWithUnit("港币", hkdValue),
+		formatMoneyWithUnit("美元", usdValue),
 		formatMoney(totalCNY),
 	)
 }

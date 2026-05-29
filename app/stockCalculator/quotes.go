@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ type QuoteProvider interface {
 
 type ExchangeRateProvider interface {
 	FetchHKDCNY() (float64, error)
+	FetchUSDCNY() (float64, error)
 }
 
 type EastMoneyQuoteProvider struct {
@@ -62,12 +64,58 @@ func (p *EastMoneyQuoteProvider) Fetch(symbols []string) (map[string]Quote, erro
 		return map[string]Quote{}, nil
 	}
 
+	secIDs, symbolBySecID, normalizedSymbols, usSymbols, failures := splitQuoteSymbols(symbols)
+
+	quotes := make(map[string]Quote, len(symbols))
+	var fetchFailures []string
+	if len(secIDs) > 0 {
+		eastMoneyQuotes, err := p.fetchEastMoneyQuotes(secIDs, symbolBySecID)
+		if err != nil {
+			fetchFailures = append(fetchFailures, err.Error())
+			eastMoneyQuotes = make(map[string]Quote, len(secIDs))
+		}
+		p.fillMissingAStockPrices(normalizedSymbols, eastMoneyQuotes)
+		for symbol, quote := range eastMoneyQuotes {
+			quotes[symbol] = quote
+		}
+	}
+	if len(usSymbols) > 0 {
+		usQuotes, err := p.fetchUSQuotes(usSymbols)
+		if err != nil {
+			fetchFailures = append(fetchFailures, err.Error())
+		}
+		for symbol, quote := range usQuotes {
+			quotes[symbol] = quote
+		}
+	}
+
+	if len(quotes) == 0 {
+		if len(fetchFailures) > 0 {
+			return nil, fmt.Errorf("行情请求失败: %s", strings.Join(fetchFailures, "; "))
+		}
+		if len(failures) > 0 {
+			return nil, fmt.Errorf("没有解析到有效行情: %s", strings.Join(failures, "; "))
+		}
+		return nil, errors.New("没有解析到有效行情，可能是接口不可用")
+	}
+	return quotes, nil
+}
+
+func splitQuoteSymbols(symbols []string) ([]string, map[string]string, []string, []string, []string) {
 	secIDs := make([]string, 0, len(symbols))
 	symbolBySecID := make(map[string]string, len(symbols))
 	normalizedSymbols := make([]string, 0, len(symbols))
+	usSymbols := make([]string, 0, len(symbols))
 	var failures []string
 	for _, symbol := range symbols {
 		normalized := normalizeQuoteSymbol(symbol)
+		if normalized == "" {
+			continue
+		}
+		if strings.HasPrefix(normalized, "us") {
+			usSymbols = append(usSymbols, normalized)
+			continue
+		}
 		secID, err := toEastMoneySecID(normalized)
 		if err != nil {
 			failures = append(failures, fmt.Sprintf("%s: %v", symbol, err))
@@ -77,25 +125,7 @@ func (p *EastMoneyQuoteProvider) Fetch(symbols []string) (map[string]Quote, erro
 		normalizedSymbols = append(normalizedSymbols, normalized)
 		symbolBySecID[secID] = normalized
 	}
-	if len(secIDs) == 0 {
-		if len(failures) > 0 {
-			return nil, fmt.Errorf("没有解析到有效行情: %s", strings.Join(failures, "; "))
-		}
-		return nil, errors.New("没有解析到有效行情，可能是接口不可用")
-	}
-
-	quotes, err := p.fetchEastMoneyQuotes(secIDs, symbolBySecID)
-	if err != nil {
-		quotes = make(map[string]Quote, len(secIDs))
-	}
-	p.fillMissingAStockPrices(normalizedSymbols, quotes)
-	if len(quotes) == 0 {
-		if err != nil {
-			return nil, err
-		}
-		return nil, errors.New("没有解析到有效行情，可能是接口不可用")
-	}
-	return quotes, nil
+	return secIDs, symbolBySecID, normalizedSymbols, usSymbols, failures
 }
 
 func (p *EastMoneyQuoteProvider) fetchEastMoneyQuotes(secIDs []string, symbolBySecID map[string]string) (map[string]Quote, error) {
@@ -278,8 +308,198 @@ func toEastMoneySecID(symbol string) (string, error) {
 		}
 		return "116." + fmt.Sprintf("%05s", code), nil
 	default:
-		return "", errors.New("仅支持 A 股和港股行情")
+		return "", errors.New("仅支持 A 股、港股和美股行情")
 	}
+}
+
+func (p *EastMoneyQuoteProvider) fetchUSQuotes(symbols []string) (map[string]Quote, error) {
+	quotes, err := p.fetchStooqQuotes(symbols)
+	if err == nil && len(quotes) == len(symbols) {
+		return quotes, nil
+	}
+
+	yahooQuotes, yahooErr := p.fetchYahooQuotes(symbols)
+	if len(quotes) == 0 {
+		quotes = yahooQuotes
+	} else {
+		for symbol, quote := range yahooQuotes {
+			quotes[symbol] = quote
+		}
+	}
+	if len(quotes) > 0 {
+		return quotes, nil
+	}
+	if yahooErr != nil {
+		return nil, yahooErr
+	}
+	return nil, err
+}
+
+func (p *EastMoneyQuoteProvider) fetchStooqQuotes(symbols []string) (map[string]Quote, error) {
+	quotes := make(map[string]Quote, len(symbols))
+	var failures []string
+	for _, symbol := range symbols {
+		quote, err := p.fetchSingleStooqQuote(symbol)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", symbol, err))
+			continue
+		}
+		quotes[symbol] = quote
+	}
+	if len(quotes) > 0 {
+		return quotes, nil
+	}
+	if len(failures) > 0 {
+		return nil, fmt.Errorf("Stooq 美股行情请求失败: %s", strings.Join(failures, "; "))
+	}
+	return nil, errors.New("Stooq 美股行情请求失败")
+}
+
+func (p *EastMoneyQuoteProvider) fetchSingleStooqQuote(symbol string) (Quote, error) {
+	ticker := usTickerFromSymbol(symbol)
+	if ticker == "" {
+		return Quote{}, errors.New("美股代码无效")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://stooq.com/q/l/", nil)
+	if err != nil {
+		return Quote{}, err
+	}
+	q := req.URL.Query()
+	q.Set("s", strings.ToLower(strings.ReplaceAll(ticker, ".", "-"))+".us")
+	q.Set("f", "sd2t2ncl1")
+	q.Set("h", "")
+	q.Set("e", "csv")
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Close = true
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return Quote{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return Quote{}, fmt.Errorf("Stooq 接口返回状态码 %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Quote{}, fmt.Errorf("读取 Stooq 响应失败: %w", err)
+	}
+	return parseStooqQuote(body, symbol, ticker)
+}
+
+func parseStooqQuote(body []byte, symbol string, ticker string) (Quote, error) {
+	rows, err := csv.NewReader(strings.NewReader(string(body))).ReadAll()
+	if err != nil {
+		return Quote{}, fmt.Errorf("解析 Stooq 响应失败: %w", err)
+	}
+	if len(rows) < 2 || len(rows[1]) < 5 {
+		return Quote{}, errors.New("Stooq 响应缺少有效数据")
+	}
+	priceText := strings.TrimSpace(rows[1][4])
+	price, err := strconv.ParseFloat(priceText, 64)
+	if err != nil || price <= 0 {
+		return Quote{}, errors.New("Stooq 未返回有效价格")
+	}
+	name := strings.TrimSpace(rows[1][3])
+	if name == "" || strings.EqualFold(name, "N/D") {
+		name = ticker
+	}
+	return Quote{
+		Symbol:      symbol,
+		Name:        name,
+		Price:       price,
+		PriceDigits: decimalDigits(priceText),
+	}, nil
+}
+
+func (p *EastMoneyQuoteProvider) fetchYahooQuotes(symbols []string) (map[string]Quote, error) {
+	quotes := make(map[string]Quote, len(symbols))
+	var failures []string
+	for _, symbol := range symbols {
+		quote, err := p.fetchSingleYahooQuote(symbol)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", symbol, err))
+			continue
+		}
+		quotes[symbol] = quote
+	}
+	if len(quotes) > 0 {
+		return quotes, nil
+	}
+	if len(failures) > 0 {
+		return nil, fmt.Errorf("Yahoo 美股行情请求失败: %s", strings.Join(failures, "; "))
+	}
+	return nil, errors.New("Yahoo 美股行情请求失败")
+}
+
+func (p *EastMoneyQuoteProvider) fetchSingleYahooQuote(symbol string) (Quote, error) {
+	ticker := usTickerFromSymbol(symbol)
+	if ticker == "" {
+		return Quote{}, errors.New("美股代码无效")
+	}
+	req, err := http.NewRequest(http.MethodGet, "https://query1.finance.yahoo.com/v8/finance/chart/"+strings.ReplaceAll(ticker, ".", "-"), nil)
+	if err != nil {
+		return Quote{}, err
+	}
+	q := req.URL.Query()
+	q.Set("range", "1d")
+	q.Set("interval", "1m")
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("Referer", "https://finance.yahoo.com/")
+	req.Close = true
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return Quote{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return Quote{}, fmt.Errorf("Yahoo 接口返回状态码 %d", resp.StatusCode)
+	}
+	var payload struct {
+		Chart struct {
+			Result []struct {
+				Meta struct {
+					Symbol             string  `json:"symbol"`
+					RegularMarketPrice float64 `json:"regularMarketPrice"`
+				} `json:"meta"`
+			} `json:"result"`
+			Error any `json:"error"`
+		} `json:"chart"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return Quote{}, fmt.Errorf("解析 Yahoo 响应失败: %w", err)
+	}
+	if len(payload.Chart.Result) == 0 {
+		return Quote{}, errors.New("Yahoo 响应缺少有效数据")
+	}
+	price := payload.Chart.Result[0].Meta.RegularMarketPrice
+	if price <= 0 {
+		return Quote{}, errors.New("Yahoo 未返回有效价格")
+	}
+	name := strings.TrimSpace(payload.Chart.Result[0].Meta.Symbol)
+	if name == "" {
+		name = ticker
+	}
+	return Quote{
+		Symbol:      symbol,
+		Name:        name,
+		Price:       price,
+		PriceDigits: decimalDigits(strconv.FormatFloat(price, 'f', -1, 64)),
+	}, nil
+}
+
+func usTickerFromSymbol(symbol string) string {
+	symbol = normalizeQuoteSymbol(symbol)
+	if !strings.HasPrefix(symbol, "us") || len(symbol) <= 2 {
+		return ""
+	}
+	return strings.ToUpper(symbol[2:])
 }
 
 func isDigits(value string) bool {
@@ -397,7 +617,15 @@ func decimalDigits(value string) int {
 }
 
 func (p *FrankfurterExchangeRateProvider) FetchHKDCNY() (float64, error) {
-	req, err := http.NewRequest(http.MethodGet, "https://api.frankfurter.dev/v1/latest?base=HKD&symbols=CNY", nil)
+	return p.fetchCNYRate("HKD", "未获取到有效 HKD/CNY 汇率")
+}
+
+func (p *FrankfurterExchangeRateProvider) FetchUSDCNY() (float64, error) {
+	return p.fetchCNYRate("USD", "未获取到有效 USD/CNY 汇率")
+}
+
+func (p *FrankfurterExchangeRateProvider) fetchCNYRate(base string, emptyMessage string) (float64, error) {
+	req, err := http.NewRequest(http.MethodGet, "https://api.frankfurter.dev/v1/latest?base="+base+"&symbols=CNY", nil)
 	if err != nil {
 		return 0, err
 	}
@@ -421,7 +649,7 @@ func (p *FrankfurterExchangeRateProvider) FetchHKDCNY() (float64, error) {
 	}
 	rate := payload.Rates["CNY"]
 	if rate <= 0 {
-		return 0, errors.New("未获取到有效 HKD/CNY 汇率")
+		return 0, errors.New(emptyMessage)
 	}
 	return rate, nil
 }
