@@ -51,6 +51,10 @@ type UI struct {
 	holdingsRows  [][]string
 	recordsRows   [][]string
 	stopRefreshCh chan struct{}
+	stopRefresh   sync.Once
+	refreshWG     sync.WaitGroup
+	lifecycleMu   sync.RWMutex
+	closing       bool
 
 	suppressUserSelection bool
 	suppressQuantitySync  bool
@@ -71,7 +75,7 @@ func NewUI(app fyne.App) (*UI, error) {
 		app:            app,
 		window:         app.NewWindow("股票收益追踪计算器"),
 		portfolio:      portfolio,
-		provider:       NewTencentQuoteProvider(),
+		provider:       NewEastMoneyQuoteProvider(),
 		rateProvider:   NewFrankfurterExchangeRateProvider(),
 		userStore:      userStore,
 		statePath:      statePath,
@@ -92,17 +96,20 @@ func (ui *UI) Run() {
 	ui.window.CenterOnScreen()
 	ui.window.SetMaster()
 
-	go ui.startRefreshLoop()
+	ui.runBackground(ui.startRefreshLoop)
 	ui.window.ShowAndRun()
+	ui.shutdownRefresh()
+	ui.refreshWG.Wait()
 }
 
 func (ui *UI) build() {
+	ui.window.SetCloseIntercept(func() {
+		ui.shutdownRefresh()
+		ui.window.SetCloseIntercept(nil)
+		ui.window.Close()
+	})
 	ui.window.SetOnClosed(func() {
-		select {
-		case <-ui.stopRefreshCh:
-		default:
-			close(ui.stopRefreshCh)
-		}
+		ui.shutdownRefresh()
 	})
 
 	settingsPanel := ui.buildSettingsPanel()
@@ -118,6 +125,44 @@ func (ui *UI) build() {
 	)
 
 	ui.window.SetContent(container.NewPadded(content))
+}
+
+func (ui *UI) runBackground(task func()) {
+	if ui.isClosing() {
+		return
+	}
+	ui.refreshWG.Add(1)
+	go func() {
+		defer ui.refreshWG.Done()
+		if ui.isClosing() {
+			return
+		}
+		task()
+	}()
+}
+
+func (ui *UI) shutdownRefresh() {
+	ui.lifecycleMu.Lock()
+	ui.closing = true
+	ui.stopRefresh.Do(func() {
+		close(ui.stopRefreshCh)
+	})
+	ui.lifecycleMu.Unlock()
+}
+
+func (ui *UI) isClosing() bool {
+	ui.lifecycleMu.RLock()
+	defer ui.lifecycleMu.RUnlock()
+	return ui.closing
+}
+
+func (ui *UI) refreshViewIfOpen() {
+	ui.lifecycleMu.RLock()
+	defer ui.lifecycleMu.RUnlock()
+	if ui.closing {
+		return
+	}
+	ui.refreshView()
 }
 
 func (ui *UI) buildSettingsPanel() fyne.CanvasObject {
@@ -253,11 +298,11 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 		ui.priceEntry.SetText("")
 		ui.priceCurrencySelect.SetSelected("港币")
 		ui.refreshView()
-		go ui.refreshQuotes()
+		ui.runBackground(ui.refreshQuotes)
 	})
 
 	refreshButton := widget.NewButton("立即刷新行情", func() {
-		go ui.refreshQuotes()
+		ui.runBackground(ui.refreshQuotes)
 	})
 
 	form := widget.NewForm(
@@ -423,15 +468,23 @@ func (ui *UI) startRefreshLoop() {
 }
 
 func (ui *UI) refreshQuotes() {
+	if ui.isClosing() {
+		return
+	}
 	_ = ui.portfolio.RefreshQuotes(ui.provider)
-	ui.refreshView()
+	ui.refreshViewIfOpen()
 }
 
 func (ui *UI) refreshMarketData() {
+	if ui.isClosing() {
+		return
+	}
 	if ui.rateProvider != nil {
 		if rate, err := ui.rateProvider.FetchHKDCNY(); err == nil {
-			if err := ui.portfolio.SetExchangeRate(rate); err == nil {
-				_ = ui.portfolio.SaveToFile(ui.statePath)
+			if !ui.isClosing() {
+				if err := ui.portfolio.SetExchangeRate(rate); err == nil {
+					_ = ui.portfolio.SaveToFile(ui.statePath)
+				}
 			}
 		}
 	}
@@ -477,14 +530,24 @@ func buildHoldingsRows(holdings []HoldingSummary) [][]string {
 			name,
 			holding.Market,
 			strconv.Itoa(holding.Quantity),
-			fmt.Sprintf("%.2f %s", holding.AvgCostLocal, holding.Currency),
-			fmt.Sprintf("%.2f %s", holding.CurrentPrice, holding.Currency),
+			fmt.Sprintf("%s %s", formatPrice(holding.AvgCostLocal, holding.CurrentPriceDigits), holding.Currency),
+			fmt.Sprintf("%s %s", formatPrice(holding.CurrentPrice, holding.CurrentPriceDigits), holding.Currency),
 			formatMoneyWithUnit(holding.Currency, holding.MarketValueLocal),
 			formatMoneyWithUnit(holding.Currency, holding.UnrealizedPnLLocal),
 		})
 	}
 
 	return rows
+}
+
+func formatPrice(value float64, digits int) string {
+	if digits < 2 {
+		digits = 2
+	}
+	if digits > 4 {
+		digits = 4
+	}
+	return strconv.FormatFloat(value, 'f', digits, 64)
 }
 
 func buildRecordRows(records []TradeSummary) [][]string {
@@ -564,7 +627,7 @@ func (ui *UI) switchUser(name string) error {
 	}
 	ui.refreshUserOptions(user.Name)
 	ui.refreshView()
-	go ui.refreshMarketData()
+	ui.runBackground(ui.refreshMarketData)
 	return nil
 }
 

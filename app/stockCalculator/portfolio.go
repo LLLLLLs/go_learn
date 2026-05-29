@@ -59,6 +59,7 @@ type Position struct {
 	AvgCostLocal float64
 	AvgCostBase  float64
 	LastPrice    float64
+	PriceDigits  int
 }
 
 type Portfolio struct {
@@ -104,6 +105,7 @@ type HoldingSummary struct {
 	Quantity           int
 	AvgCostLocal       float64
 	CurrentPrice       float64
+	CurrentPriceDigits int
 	MarketValue        float64
 	MarketValueLocal   float64
 	UnrealizedPnL      float64
@@ -284,7 +286,10 @@ func (p *Portfolio) RefreshQuotes(provider QuoteProvider) error {
 		if pos == nil {
 			continue
 		}
-		pos.LastPrice = quote.Price
+		if quote.Price > 0 {
+			pos.LastPrice = quote.Price
+			pos.PriceDigits = quote.PriceDigits
+		}
 		if quote.Name != "" {
 			pos.Name = quote.Name
 		}
@@ -316,6 +321,7 @@ func (p *Portfolio) Summary() Summary {
 			Quantity:           pos.Quantity,
 			AvgCostLocal:       pos.AvgCostLocal,
 			CurrentPrice:       pos.LastPrice,
+			CurrentPriceDigits: pos.PriceDigits,
 			MarketValue:        currentBase,
 			MarketValueLocal:   currentLocal,
 			UnrealizedPnL:      rowPnL,

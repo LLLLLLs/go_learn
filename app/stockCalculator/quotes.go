@@ -17,9 +17,10 @@ import (
 )
 
 type Quote struct {
-	Symbol string
-	Name   string
-	Price  float64
+	Symbol      string
+	Name        string
+	Price       float64
+	PriceDigits int
 }
 
 type QuoteProvider interface {
@@ -30,17 +31,23 @@ type ExchangeRateProvider interface {
 	FetchHKDCNY() (float64, error)
 }
 
-type TencentQuoteProvider struct {
-	client *http.Client
+type EastMoneyQuoteProvider struct {
+	client   *http.Client
+	baseURLs []string
 }
 
 type FrankfurterExchangeRateProvider struct {
 	client *http.Client
 }
 
-func NewTencentQuoteProvider() *TencentQuoteProvider {
-	return &TencentQuoteProvider{
+func NewEastMoneyQuoteProvider() *EastMoneyQuoteProvider {
+	return &EastMoneyQuoteProvider{
 		client: &http.Client{Timeout: 6 * time.Second},
+		baseURLs: []string{
+			"https://push2.eastmoney.com/api/qt/ulist.np/get",
+			"http://push2.eastmoney.com/api/qt/ulist.np/get",
+			"https://push2his.eastmoney.com/api/qt/ulist.np/get",
+		},
 	}
 }
 
@@ -50,21 +57,189 @@ func NewFrankfurterExchangeRateProvider() *FrankfurterExchangeRateProvider {
 	}
 }
 
-func (p *TencentQuoteProvider) Fetch(symbols []string) (map[string]Quote, error) {
+func (p *EastMoneyQuoteProvider) Fetch(symbols []string) (map[string]Quote, error) {
 	if len(symbols) == 0 {
 		return map[string]Quote{}, nil
 	}
 
+	secIDs := make([]string, 0, len(symbols))
+	symbolBySecID := make(map[string]string, len(symbols))
+	normalizedSymbols := make([]string, 0, len(symbols))
+	var failures []string
+	for _, symbol := range symbols {
+		normalized := normalizeQuoteSymbol(symbol)
+		secID, err := toEastMoneySecID(normalized)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", symbol, err))
+			continue
+		}
+		secIDs = append(secIDs, secID)
+		normalizedSymbols = append(normalizedSymbols, normalized)
+		symbolBySecID[secID] = normalized
+	}
+	if len(secIDs) == 0 {
+		if len(failures) > 0 {
+			return nil, fmt.Errorf("没有解析到有效行情: %s", strings.Join(failures, "; "))
+		}
+		return nil, errors.New("没有解析到有效行情，可能是接口不可用")
+	}
+
+	quotes, err := p.fetchEastMoneyQuotes(secIDs, symbolBySecID)
+	if err != nil {
+		quotes = make(map[string]Quote, len(secIDs))
+	}
+	p.fillMissingAStockPrices(normalizedSymbols, quotes)
+	if len(quotes) == 0 {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("没有解析到有效行情，可能是接口不可用")
+	}
+	return quotes, nil
+}
+
+func (p *EastMoneyQuoteProvider) fetchEastMoneyQuotes(secIDs []string, symbolBySecID map[string]string) (map[string]Quote, error) {
+	body, err := p.fetchEastMoneyBody(secIDs)
+	if err == nil {
+		return parseEastMoneyQuotes(body, symbolBySecID)
+	}
+	if len(secIDs) == 1 {
+		return nil, err
+	}
+
+	quotes := make(map[string]Quote, len(secIDs))
+	var failures []string
+	for _, secID := range secIDs {
+		body, itemErr := p.fetchEastMoneyBody([]string{secID})
+		if itemErr != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", secID, itemErr))
+			continue
+		}
+		itemQuotes, itemErr := parseEastMoneyQuotes(body, symbolBySecID)
+		if itemErr != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", secID, itemErr))
+			continue
+		}
+		for symbol, quote := range itemQuotes {
+			quotes[symbol] = quote
+		}
+	}
+	if len(quotes) > 0 {
+		return quotes, nil
+	}
+	if len(failures) > 0 {
+		return nil, fmt.Errorf("行情请求失败: %s", strings.Join(failures, "; "))
+	}
+	return nil, err
+}
+
+func (p *EastMoneyQuoteProvider) fillMissingAStockPrices(symbols []string, quotes map[string]Quote) {
+	fallbackSymbols := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		normalized := normalizeQuoteSymbol(symbol)
+		if !strings.HasPrefix(normalized, "sh") && !strings.HasPrefix(normalized, "sz") {
+			continue
+		}
+		if quotes[normalized].Price > 0 {
+			continue
+		}
+		fallbackSymbols = append(fallbackSymbols, normalized)
+	}
+	if len(fallbackSymbols) == 0 {
+		return
+	}
+
+	fallbackQuotes, err := p.fetchTencentQuotes(fallbackSymbols)
+	if err != nil {
+		return
+	}
+	for symbol, fallback := range fallbackQuotes {
+		if fallback.Price <= 0 {
+			continue
+		}
+		quote := quotes[symbol]
+		if quote.Symbol == "" {
+			quote.Symbol = symbol
+		}
+		if quote.Name == "" {
+			quote.Name = fallback.Name
+		}
+		quote.Price = fallback.Price
+		quote.PriceDigits = fallback.PriceDigits
+		quotes[symbol] = quote
+	}
+}
+
+func normalizeQuoteSymbol(symbol string) string {
+	return strings.ToLower(strings.TrimSpace(symbol))
+}
+
+func (p *EastMoneyQuoteProvider) fetchTencentQuotes(symbols []string) (map[string]Quote, error) {
 	req, err := http.NewRequest(http.MethodGet, "https://qt.gtimg.cn/q="+strings.Join(symbols, ","), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	req.Header.Set("Referer", "https://gu.qq.com/")
+	req.Close = true
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("行情请求失败: %w", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("腾讯行情接口返回状态码 %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取腾讯行情响应失败: %w", err)
+	}
+
+	lines := strings.Split(decodeGBK(body), ";")
+	quotes := make(map[string]Quote, len(symbols))
+	for _, line := range lines {
+		symbol, quote, ok := parseTencentLine(line)
+		if ok {
+			quotes[symbol] = quote
+		}
+	}
+	return quotes, nil
+}
+
+func (p *EastMoneyQuoteProvider) fetchEastMoneyBody(secIDs []string) ([]byte, error) {
+	var lastErr error
+	for _, baseURL := range p.baseURLs {
+		for attempt := 0; attempt < 2; attempt++ {
+			body, err := p.fetchEastMoneyBodyOnce(baseURL, secIDs)
+			if err == nil {
+				return body, nil
+			}
+			lastErr = err
+			time.Sleep(time.Duration(100*(attempt+1)) * time.Millisecond)
+		}
+	}
+	return nil, fmt.Errorf("行情请求失败: %w", lastErr)
+}
+
+func (p *EastMoneyQuoteProvider) fetchEastMoneyBodyOnce(baseURL string, secIDs []string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, baseURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	q.Set("fltt", "2")
+	q.Set("fields", "f12,f13,f14,f2")
+	q.Set("secids", strings.Join(secIDs, ","))
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("Referer", "https://quote.eastmoney.com/")
+	req.Close = true
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -76,25 +251,83 @@ func (p *TencentQuoteProvider) Fetch(symbols []string) (map[string]Quote, error)
 	if err != nil {
 		return nil, fmt.Errorf("读取行情响应失败: %w", err)
 	}
+	return body, nil
+}
 
-	decoded := decodeGBK(body)
-	lines := strings.Split(decoded, ";")
-	quotes := make(map[string]Quote, len(symbols))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		symbol, quote, ok := parseTencentLine(line)
-		if !ok {
-			continue
-		}
-		quotes[symbol] = quote
+func toEastMoneySecID(symbol string) (string, error) {
+	symbol = strings.ToLower(strings.TrimSpace(symbol))
+	if len(symbol) < 3 {
+		return "", errors.New("股票代码无效")
 	}
 
-	if len(quotes) == 0 {
-		return nil, errors.New("没有解析到有效行情，可能是接口不可用")
+	prefix := symbol[:2]
+	code := symbol[2:]
+	switch prefix {
+	case "sh", "sz", "bj":
+		if len(code) != 6 || !isDigits(code) {
+			return "", errors.New("A 股代码无效")
+		}
+		market := "0"
+		if prefix == "sh" {
+			market = "1"
+		}
+		return market + "." + code, nil
+	case "hk":
+		if len(code) == 0 || len(code) > 5 || !isDigits(code) {
+			return "", errors.New("港股代码无效")
+		}
+		return "116." + fmt.Sprintf("%05s", code), nil
+	default:
+		return "", errors.New("仅支持 A 股和港股行情")
+	}
+}
+
+func isDigits(value string) bool {
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func parseEastMoneyQuotes(body []byte, symbolBySecID map[string]string) (map[string]Quote, error) {
+	var payload struct {
+		RC   int `json:"rc"`
+		Data *struct {
+			Diff []struct {
+				Price  json.RawMessage `json:"f2"`
+				Code   string          `json:"f12"`
+				Market int             `json:"f13"`
+				Name   string          `json:"f14"`
+			} `json:"diff"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("解析行情响应失败: %w", err)
+	}
+	if payload.RC != 0 || payload.Data == nil {
+		return nil, errors.New("行情响应缺少有效数据")
+	}
+
+	quotes := make(map[string]Quote, len(payload.Data.Diff))
+	for _, item := range payload.Data.Diff {
+		secID := fmt.Sprintf("%d.%s", item.Market, item.Code)
+		symbol := symbolBySecID[secID]
+		if symbol == "" {
+			continue
+		}
+		priceText := strings.Trim(string(item.Price), `"`)
+		price, err := strconv.ParseFloat(priceText, 64)
+		if err != nil {
+			price = 0
+		}
+		quotes[symbol] = Quote{
+			Symbol:      symbol,
+			Name:        strings.TrimSpace(item.Name),
+			Price:       price,
+			PriceDigits: decimalDigits(priceText),
+		}
 	}
 	return quotes, nil
 }
@@ -109,6 +342,7 @@ func decodeGBK(body []byte) string {
 }
 
 func parseTencentLine(line string) (string, Quote, bool) {
+	line = strings.TrimSpace(line)
 	eq := strings.Index(line, "=")
 	if eq <= 2 || !strings.HasPrefix(line, "v_") {
 		return "", Quote{}, false
@@ -127,8 +361,9 @@ func parseTencentLine(line string) (string, Quote, bool) {
 		return "", Quote{}, false
 	}
 
-	price, err := strconv.ParseFloat(fields[3], 64)
-	if err != nil {
+	priceText := fields[3]
+	price, err := strconv.ParseFloat(priceText, 64)
+	if err != nil || price <= 0 {
 		return "", Quote{}, false
 	}
 
@@ -138,10 +373,27 @@ func parseTencentLine(line string) (string, Quote, bool) {
 	}
 
 	return symbol, Quote{
-		Symbol: symbol,
-		Name:   name,
-		Price:  price,
+		Symbol:      symbol,
+		Name:        name,
+		Price:       price,
+		PriceDigits: decimalDigits(priceText),
 	}, true
+}
+
+func decimalDigits(value string) int {
+	value = strings.TrimSpace(value)
+	dot := strings.Index(value, ".")
+	if dot < 0 {
+		return 2
+	}
+	digits := len(value) - dot - 1
+	if digits < 2 {
+		return 2
+	}
+	if digits > 4 {
+		return 4
+	}
+	return digits
 }
 
 func (p *FrankfurterExchangeRateProvider) FetchHKDCNY() (float64, error) {
