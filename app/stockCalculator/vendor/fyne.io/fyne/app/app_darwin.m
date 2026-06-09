@@ -5,6 +5,9 @@ extern void themeChanged();
 
 #import <Foundation/Foundation.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 @interface FyneUserNotificationCenterDelegate : NSObject<NSUserNotificationCenterDelegate>
 
 - (BOOL)userNotificationCenter:(NSUserNotificationCenter*)center
@@ -46,6 +49,8 @@ void sendNotification(const char *title, const char *body) {
     notification.identifier = [NSString stringWithFormat:@"%@-fyne-notify-%@", [[NSBundle mainBundle] bundleIdentifier], uuid];
     [center scheduleNotification:notification];
 }
+
+#pragma clang diagnostic pop
 
 void watchTheme() {
     [[NSDistributedNotificationCenter defaultCenter] addObserverForName:@"AppleInterfaceThemeChangedNotification" object:nil queue:nil

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,19 +44,23 @@ type UI struct {
 	priceCurrencySelect   *widget.Select
 	tradeTypeSelect       *widget.Select
 	statusLabel           *widget.Label
+	countdownLabel        *widget.Label
 
 	summaryLabels map[string]*widget.Label
 	holdingsTable *widget.Table
 	recordsTable  *widget.Table
 
-	tableMu       sync.RWMutex
-	holdingsRows  [][]string
-	recordsRows   [][]string
-	stopRefreshCh chan struct{}
-	stopRefresh   sync.Once
-	refreshWG     sync.WaitGroup
-	lifecycleMu   sync.RWMutex
-	closing       bool
+	tableMu             sync.RWMutex
+	holdingsRows        [][]string
+	recordsRows         [][]string
+	stopRefreshCh       chan struct{}
+	resetRefreshTimerCh chan struct{}
+	stopRefresh         sync.Once
+	refreshWG           sync.WaitGroup
+	lifecycleMu         sync.RWMutex
+	closing             bool
+	nextRefreshMu       sync.RWMutex
+	nextQuoteRefreshAt  time.Time
 
 	suppressUserSelection bool
 	suppressQuantitySync  bool
@@ -73,22 +78,24 @@ func NewUI(app fyne.App) (*UI, error) {
 	}
 
 	ui := &UI{
-		app:            app,
-		window:         app.NewWindow("股票收益追踪计算器"),
-		portfolio:      portfolio,
-		provider:       NewEastMoneyQuoteProvider(),
-		rateProvider:   NewFrankfurterExchangeRateProvider(),
-		userStore:      userStore,
-		statePath:      statePath,
-		currentUser:    userStore.CurrentUser(),
-		recentCodeMap:  make(map[string]string),
-		sellHoldingMap: make(map[string]HoldingSummary),
-		summaryLabels:  make(map[string]*widget.Label),
-		stopRefreshCh:  make(chan struct{}),
+		app:                 app,
+		window:              app.NewWindow("股票收益追踪计算器"),
+		portfolio:           portfolio,
+		provider:            NewEastMoneyQuoteProvider(),
+		rateProvider:        NewFrankfurterExchangeRateProvider(),
+		userStore:           userStore,
+		statePath:           statePath,
+		currentUser:         userStore.CurrentUser(),
+		recentCodeMap:       make(map[string]string),
+		sellHoldingMap:      make(map[string]HoldingSummary),
+		summaryLabels:       make(map[string]*widget.Label),
+		stopRefreshCh:       make(chan struct{}),
+		resetRefreshTimerCh: make(chan struct{}, 1),
 	}
 
 	ui.build()
 	ui.refreshView()
+	_ = ui.portfolio.SaveToFile(ui.statePath)
 	return ui, nil
 }
 
@@ -98,9 +105,9 @@ func (ui *UI) Run() {
 	ui.window.SetMaster()
 
 	ui.runBackground(ui.startRefreshLoop)
+	ui.runBackground(ui.startCountdownLoop)
 	ui.window.ShowAndRun()
 	ui.shutdownRefresh()
-	ui.refreshWG.Wait()
 }
 
 func (ui *UI) build() {
@@ -192,9 +199,8 @@ func (ui *UI) buildSettingsPanel() fyne.CanvasObject {
 		widget.NewFormItem("余额币种", currencyRow),
 	)
 
-	card := widget.NewCard("余额管理", "汇率会在打开应用时联网获取，余额调整会影响累计收益基准",
-		container.NewVBox(userPanel, form))
-	return card
+	balanceCard := widget.NewCard("余额管理", "", form)
+	return container.NewVBox(userPanel, balanceCard)
 }
 
 func (ui *UI) buildUserPanel() fyne.CanvasObject {
@@ -216,11 +222,9 @@ func (ui *UI) buildUserPanel() fyne.CanvasObject {
 	renameButton := widget.NewButton("改名", func() {
 		ui.showRenameUserDialog()
 	})
-	userRow := container.NewBorder(nil, nil, nil, renameButton, ui.userSelect)
+	userRow := container.NewBorder(nil, nil, widget.NewLabel("用户切换"), renameButton, ui.userSelect)
 
-	form := widget.NewForm(widget.NewFormItem("用户列表", userRow))
-	return widget.NewCard("用户切换", "每个用户的数据单独保存在 data/users/<user-id> 目录中",
-		form)
+	return widget.NewCard("", "", userRow)
 }
 
 func (ui *UI) buildTradePanel() fyne.CanvasObject {
@@ -298,11 +302,11 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 		ui.priceEntry.SetText("")
 		ui.priceCurrencySelect.SetSelected("港币")
 		ui.refreshView()
-		ui.runBackground(ui.refreshQuotes)
+		ui.runBackground(ui.manualRefreshQuotes)
 	})
 
 	refreshButton := widget.NewButton("立即刷新行情", func() {
-		ui.runBackground(ui.refreshQuotes)
+		ui.runBackground(ui.manualRefreshQuotes)
 	})
 
 	form := widget.NewForm(
@@ -315,7 +319,7 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 	)
 
 	card := widget.NewCard(
-		"交易记录",
+		"",
 		"",
 		container.NewVBox(form, container.NewHBox(submitButton, refreshButton)),
 	)
@@ -402,11 +406,12 @@ func (ui *UI) buildTables() fyne.CanvasObject {
 
 func (ui *UI) statusLabelWidget() fyne.CanvasObject {
 	ui.statusLabel = widget.NewLabel("等待行情刷新...")
-	return ui.statusLabel
+	ui.countdownLabel = widget.NewLabel("下次更新: --")
+	return container.NewBorder(nil, nil, nil, ui.countdownLabel, ui.statusLabel)
 }
 
 func (ui *UI) setColumnWidths() {
-	widths1 := []int{110, 180, 70, 60, 110, 110, 120, 120}
+	widths1 := []int{110, 180, 70, 60, 110, 110, 120, 120, 120, 120, 90}
 	for idx, width := range widths1 {
 		ui.holdingsTable.SetColumnWidth(idx, width)
 	}
@@ -455,15 +460,34 @@ func (ui *UI) refreshView() {
 }
 
 func (ui *UI) startRefreshLoop() {
-	ui.refreshMarketData()
+	initialNextRefresh := time.Now().Add(ui.portfolio.RefreshInterval())
+	if nextFromCache, ok := ui.portfolio.NextQuoteRefreshFromCache(ui.portfolio.RefreshInterval(), time.Now()); ok {
+		log.Printf("[ui] refresh quotes skipped: fresh local cache")
+		initialNextRefresh = nextFromCache
+	} else {
+		ui.refreshQuotes()
+		initialNextRefresh = time.Now().Add(ui.portfolio.RefreshInterval())
+	}
+	ui.refreshExchangeRatesIfStale()
+	ui.scheduleNextQuoteRefreshAt(initialNextRefresh)
 
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+	timer := time.NewTimer(timeUntil(initialNextRefresh, time.Now()))
+	defer timer.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
+		case <-timer.C:
 			ui.refreshQuotes()
+			ui.scheduleNextQuoteRefresh()
+			timer.Reset(ui.portfolio.RefreshInterval())
+		case <-ui.resetRefreshTimerCh:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(timeUntil(ui.nextQuoteRefreshTime(), time.Now()))
 		case <-ui.stopRefreshCh:
 			return
 		}
@@ -472,33 +496,136 @@ func (ui *UI) startRefreshLoop() {
 
 func (ui *UI) refreshQuotes() {
 	if ui.isClosing() {
+		log.Printf("[ui] refresh quotes skipped: closing")
 		return
 	}
-	_ = ui.portfolio.RefreshQuotes(ui.provider)
+	start := time.Now()
+	log.Printf("[ui] refresh quotes start")
+	err := ui.portfolio.RefreshQuotes(ui.provider)
+	if err == nil && !ui.isClosing() {
+		_ = ui.portfolio.SaveToFile(ui.statePath)
+	}
+	log.Printf("[ui] refresh quotes done elapsed=%s err=%v", time.Since(start), err)
 	ui.refreshViewIfOpen()
+}
+
+func (ui *UI) manualRefreshQuotes() {
+	ui.refreshQuotes()
+	ui.scheduleNextQuoteRefresh()
+	ui.resetRefreshTimer()
+}
+
+func (ui *UI) resetRefreshTimer() {
+	if ui.isClosing() {
+		return
+	}
+	select {
+	case ui.resetRefreshTimerCh <- struct{}{}:
+	default:
+	}
+}
+
+func (ui *UI) startCountdownLoop() {
+	ui.updateCountdownLabel()
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			ui.updateCountdownLabel()
+		case <-ui.stopRefreshCh:
+			return
+		}
+	}
+}
+
+func (ui *UI) scheduleNextQuoteRefresh() {
+	interval := ui.portfolio.RefreshInterval()
+	if interval <= 0 {
+		interval = defaultRefreshSec * time.Second
+	}
+	ui.scheduleNextQuoteRefreshAt(time.Now().Add(interval))
+}
+
+func (ui *UI) scheduleNextQuoteRefreshAt(next time.Time) {
+	ui.nextRefreshMu.Lock()
+	ui.nextQuoteRefreshAt = next
+	ui.nextRefreshMu.Unlock()
+	ui.updateCountdownLabel()
+}
+
+func (ui *UI) nextQuoteRefreshTime() time.Time {
+	ui.nextRefreshMu.RLock()
+	defer ui.nextRefreshMu.RUnlock()
+	return ui.nextQuoteRefreshAt
+}
+
+func (ui *UI) updateCountdownLabel() {
+	ui.lifecycleMu.RLock()
+	defer ui.lifecycleMu.RUnlock()
+	if ui.countdownLabel == nil || ui.closing {
+		return
+	}
+	ui.nextRefreshMu.RLock()
+	next := ui.nextQuoteRefreshAt
+	ui.nextRefreshMu.RUnlock()
+
+	ui.countdownLabel.SetText(formatNextRefreshCountdown(next, time.Now()))
 }
 
 func (ui *UI) refreshMarketData() {
 	if ui.isClosing() {
 		return
 	}
+	ui.manualRefreshQuotes()
+	ui.refreshExchangeRates()
+}
+
+func (ui *UI) refreshExchangeRatesIfStale() {
+	if _, ok := ui.portfolio.NextFXRefreshFromCache(ui.portfolio.RefreshInterval(), time.Now()); ok {
+		log.Printf("[ui] refresh fx skipped: fresh local cache")
+		return
+	}
+	ui.refreshExchangeRates()
+}
+
+func (ui *UI) refreshExchangeRates() {
+	if ui.isClosing() {
+		log.Printf("[ui] refresh fx skipped: closing")
+		return
+	}
+	start := time.Now()
+	log.Printf("[ui] refresh fx start")
+	defer func() {
+		log.Printf("[ui] refresh fx done elapsed=%s", time.Since(start))
+	}()
+	updated := false
 	if ui.rateProvider != nil {
 		if rate, err := ui.rateProvider.FetchHKDCNY(); err == nil {
 			if !ui.isClosing() {
-				if err := ui.portfolio.SetExchangeRate(rate); err == nil {
+				if err := ui.portfolio.SetExchangeRateWithTime(rate, time.Now()); err == nil {
 					_ = ui.portfolio.SaveToFile(ui.statePath)
+					updated = true
 				}
 			}
+		} else {
+			log.Printf("[ui] refresh fx HKD failed err=%v", err)
 		}
 		if rate, err := ui.rateProvider.FetchUSDCNY(); err == nil {
 			if !ui.isClosing() {
-				if err := ui.portfolio.SetUSDExchangeRate(rate); err == nil {
+				if err := ui.portfolio.SetUSDExchangeRateWithTime(rate, time.Now()); err == nil {
 					_ = ui.portfolio.SaveToFile(ui.statePath)
+					updated = true
 				}
 			}
+		} else {
+			log.Printf("[ui] refresh fx USD failed err=%v", err)
 		}
 	}
-	ui.refreshQuotes()
+	if updated {
+		ui.refreshViewIfOpen()
+	}
 }
 
 func (ui *UI) columnCount(rows [][]string) int {
@@ -526,8 +653,11 @@ func buildHoldingsRows(holdings []HoldingSummary) [][]string {
 		"股数",
 		"成本价",
 		"现价",
-		"市值",
-		"浮盈亏",
+		"市值(本币)",
+		"市值(RMB)",
+		"浮盈亏(本币)",
+		"浮盈亏(RMB)",
+		"盈亏%",
 	}}
 
 	for _, holding := range holdings {
@@ -543,11 +673,22 @@ func buildHoldingsRows(holdings []HoldingSummary) [][]string {
 			fmt.Sprintf("%s %s", formatPrice(holding.AvgCostLocal, holding.CurrentPriceDigits), holding.Currency),
 			fmt.Sprintf("%s %s", formatPrice(holding.CurrentPrice, holding.CurrentPriceDigits), holding.Currency),
 			formatMoneyWithUnit(holding.Currency, holding.MarketValueLocal),
+			formatMoney(holding.MarketValue),
 			formatMoneyWithUnit(holding.Currency, holding.UnrealizedPnLLocal),
+			formatMoney(holding.UnrealizedPnL),
+			formatPercent(calculateHoldingReturn(holding)),
 		})
 	}
 
 	return rows
+}
+
+func calculateHoldingReturn(holding HoldingSummary) float64 {
+	cost := holding.AvgCostLocal * float64(holding.Quantity)
+	if cost == 0 {
+		return 0
+	}
+	return holding.UnrealizedPnLLocal / cost
 }
 
 func formatPrice(value float64, digits int) string {
@@ -600,8 +741,8 @@ func buildStatus(summary Summary) string {
 	if summary.LastRefreshErr != "" {
 		return fmt.Sprintf("最近刷新: %s，失败原因: %s", summary.LastRefreshAt.Format("2006-01-02 15:04:05"), summary.LastRefreshErr)
 	}
-	return fmt.Sprintf("最近刷新: %s，每 10 秒自动更新一次，HKD/CNY %.4f，USD/CNY %.4f",
-		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), summary.HKDRate, summary.USDRate)
+	return fmt.Sprintf("最近刷新: %s，每 %s 自动更新一次，HKD/CNY %.4f，USD/CNY %.4f",
+		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), formatRefreshInterval(summary.RefreshInterval), summary.HKDRate, summary.USDRate)
 }
 
 func (ui *UI) switchUser(name string) error {
@@ -960,6 +1101,40 @@ func parseIntField(raw string, field string) (int, error) {
 
 func formatMoney(value float64) string {
 	return fmt.Sprintf("¥%.2f", value)
+}
+
+func formatPercent(value float64) string {
+	return fmt.Sprintf("%.2f%%", value*100)
+}
+
+func formatRefreshInterval(interval time.Duration) string {
+	if interval <= 0 {
+		interval = defaultRefreshSec * time.Second
+	}
+	if interval%time.Minute == 0 {
+		return fmt.Sprintf("%d 分钟", int(interval/time.Minute))
+	}
+	return fmt.Sprintf("%d 秒", int(interval/time.Second))
+}
+
+func formatNextRefreshCountdown(next time.Time, now time.Time) string {
+	if next.IsZero() {
+		return "下次更新: --"
+	}
+	remaining := timeUntil(next, now)
+	seconds := int(remaining.Round(time.Second) / time.Second)
+	if seconds >= 60 {
+		return fmt.Sprintf("下次更新: %d分%02d秒", seconds/60, seconds%60)
+	}
+	return fmt.Sprintf("下次更新: %d秒", seconds)
+}
+
+func timeUntil(next time.Time, now time.Time) time.Duration {
+	remaining := next.Sub(now)
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
 }
 
 func formatMoneyWithUnit(unit string, value float64) string {

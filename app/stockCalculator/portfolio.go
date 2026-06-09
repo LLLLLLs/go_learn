@@ -15,6 +15,7 @@ const (
 	statePreferenceKey = "portfolio_state_v1"
 	defaultHKDRate     = 0.92
 	defaultUSDRate     = 7.20
+	defaultRefreshSec  = 60
 	moneyEpsilon       = 1e-6
 )
 
@@ -42,13 +43,35 @@ type TradeRecord struct {
 }
 
 type persistedState struct {
-	InitialCapital    float64       `json:"initial_capital,omitempty"`
-	InitialCapitalCNY float64       `json:"initial_capital_cny,omitempty"`
-	InitialCapitalHKD float64       `json:"initial_capital_hkd,omitempty"`
-	InitialCapitalUSD float64       `json:"initial_capital_usd,omitempty"`
-	HKDRate           float64       `json:"hkd_rate"`
-	USDRate           float64       `json:"usd_rate,omitempty"`
-	Records           []TradeRecord `json:"records"`
+	InitialCapital     float64       `json:"initial_capital,omitempty"`
+	InitialCapitalCNY  float64       `json:"initial_capital_cny,omitempty"`
+	InitialCapitalHKD  float64       `json:"initial_capital_hkd,omitempty"`
+	InitialCapitalUSD  float64       `json:"initial_capital_usd,omitempty"`
+	HKDRate            float64       `json:"hkd_rate"`
+	USDRate            float64       `json:"usd_rate,omitempty"`
+	RefreshIntervalSec int           `json:"refresh_interval_sec,omitempty"`
+	QuoteCache         quoteCache    `json:"quote_cache,omitempty"`
+	FXCache            fxCache       `json:"fx_cache,omitempty"`
+	Records            []TradeRecord `json:"records"`
+}
+
+type persistedQuote struct {
+	Name        string    `json:"name,omitempty"`
+	Price       float64   `json:"price,omitempty"`
+	PriceDigits int       `json:"price_digits,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+}
+
+type quoteCache map[string]persistedQuote
+
+type persistedFXRate struct {
+	Rate      float64   `json:"rate,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+}
+
+type fxCache struct {
+	HKDCNY persistedFXRate `json:"hkd_cny,omitempty"`
+	USDCNY persistedFXRate `json:"usd_cny,omitempty"`
 }
 
 type Position struct {
@@ -73,7 +96,10 @@ type Portfolio struct {
 	initialCapitalUSD float64
 	hkdRate           float64
 	usdRate           float64
+	refreshInterval   time.Duration
 	records           []TradeRecord
+	quoteCache        quoteCache
+	fxCache           fxCache
 
 	positions      map[string]*Position
 	cashCNY        float64
@@ -91,6 +117,7 @@ type Summary struct {
 	InitialCapitalUSD float64
 	HKDRate           float64
 	USDRate           float64
+	RefreshInterval   time.Duration
 	Cash              float64
 	CashCNY           float64
 	CashHKD           float64
@@ -135,9 +162,11 @@ type TradeSummary struct {
 
 func LoadPortfolio(raw string) (*Portfolio, error) {
 	p := &Portfolio{
-		hkdRate:   defaultHKDRate,
-		usdRate:   defaultUSDRate,
-		positions: make(map[string]*Position),
+		hkdRate:         defaultHKDRate,
+		usdRate:         defaultUSDRate,
+		refreshInterval: defaultRefreshSec * time.Second,
+		quoteCache:      make(quoteCache),
+		positions:       make(map[string]*Position),
 	}
 
 	if strings.TrimSpace(raw) == "" {
@@ -161,23 +190,45 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 	if state.USDRate > 0 {
 		p.usdRate = state.USDRate
 	}
+	if state.FXCache.HKDCNY.Rate > 0 {
+		p.hkdRate = state.FXCache.HKDCNY.Rate
+		p.fxCache.HKDCNY = state.FXCache.HKDCNY
+	}
+	if state.FXCache.USDCNY.Rate > 0 {
+		p.usdRate = state.FXCache.USDCNY.Rate
+		p.fxCache.USDCNY = state.FXCache.USDCNY
+	}
+	if state.RefreshIntervalSec > 0 {
+		p.refreshInterval = time.Duration(state.RefreshIntervalSec) * time.Second
+	}
+	for symbol, quote := range state.QuoteCache {
+		normalized := normalizeQuoteSymbol(symbol)
+		if normalized == "" || quote.Price <= 0 {
+			continue
+		}
+		p.quoteCache[normalized] = quote
+	}
 	p.records = append(p.records, state.Records...)
 
 	if err := p.rebuildLocked(); err != nil {
 		return nil, err
 	}
+	p.applyCachedLastRefreshLocked()
 	return p, nil
 }
 
 func (p *Portfolio) MarshalState() ([]byte, error) {
 	p.mu.RLock()
 	state := persistedState{
-		InitialCapitalCNY: p.initialCapitalCNY,
-		InitialCapitalHKD: p.initialCapitalHKD,
-		InitialCapitalUSD: p.initialCapitalUSD,
-		HKDRate:           p.hkdRate,
-		USDRate:           p.usdRate,
-		Records:           append([]TradeRecord(nil), p.records...),
+		InitialCapitalCNY:  p.initialCapitalCNY,
+		InitialCapitalHKD:  p.initialCapitalHKD,
+		InitialCapitalUSD:  p.initialCapitalUSD,
+		HKDRate:            p.hkdRate,
+		USDRate:            p.usdRate,
+		RefreshIntervalSec: int(p.refreshInterval / time.Second),
+		QuoteCache:         p.quoteCacheStateLocked(),
+		FXCache:            p.fxCache,
+		Records:            append([]TradeRecord(nil), p.records...),
 	}
 	p.mu.RUnlock()
 
@@ -223,6 +274,104 @@ func (p *Portfolio) SetUSDExchangeRate(usdRate float64) error {
 	defer p.mu.Unlock()
 	p.usdRate = usdRate
 	return nil
+}
+
+func (p *Portfolio) SetExchangeRateWithTime(hkdRate float64, updatedAt time.Time) error {
+	if hkdRate <= 0 {
+		return errors.New("港币汇率必须大于 0")
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.hkdRate = hkdRate
+	p.fxCache.HKDCNY = persistedFXRate{Rate: hkdRate, UpdatedAt: updatedAt}
+	return nil
+}
+
+func (p *Portfolio) SetUSDExchangeRateWithTime(usdRate float64, updatedAt time.Time) error {
+	if usdRate <= 0 {
+		return errors.New("美元汇率必须大于 0")
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.usdRate = usdRate
+	p.fxCache.USDCNY = persistedFXRate{Rate: usdRate, UpdatedAt: updatedAt}
+	return nil
+}
+
+func (p *Portfolio) RefreshInterval() time.Duration {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.refreshInterval <= 0 {
+		return defaultRefreshSec * time.Second
+	}
+	return p.refreshInterval
+}
+
+func (p *Portfolio) SetRefreshInterval(interval time.Duration) error {
+	if interval <= 0 {
+		return errors.New("刷新间隔必须大于 0")
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.refreshInterval = interval
+	return nil
+}
+
+func (p *Portfolio) HasFreshQuoteCache(maxAge time.Duration, now time.Time) bool {
+	_, ok := p.NextQuoteRefreshFromCache(maxAge, now)
+	return ok
+}
+
+func (p *Portfolio) NextQuoteRefreshFromCache(maxAge time.Duration, now time.Time) (time.Time, bool) {
+	if maxAge <= 0 {
+		return time.Time{}, false
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if len(p.positions) == 0 {
+		return time.Time{}, false
+	}
+	var next time.Time
+	for symbol := range p.positions {
+		quote := p.quoteCache[symbol]
+		if quote.Price <= 0 || quote.UpdatedAt.IsZero() {
+			return time.Time{}, false
+		}
+		nextForQuote := quote.UpdatedAt.Add(maxAge)
+		if !nextForQuote.After(now) {
+			return time.Time{}, false
+		}
+		if next.IsZero() || nextForQuote.Before(next) {
+			next = nextForQuote
+		}
+	}
+	return next, true
+}
+
+func (p *Portfolio) NextFXRefreshFromCache(maxAge time.Duration, now time.Time) (time.Time, bool) {
+	if maxAge <= 0 {
+		return time.Time{}, false
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	rates := []persistedFXRate{p.fxCache.HKDCNY, p.fxCache.USDCNY}
+	var next time.Time
+	for _, item := range rates {
+		if item.Rate <= 0 || item.UpdatedAt.IsZero() {
+			return time.Time{}, false
+		}
+		nextForRate := item.UpdatedAt.Add(maxAge)
+		if !nextForRate.After(now) {
+			return time.Time{}, false
+		}
+		if next.IsZero() || nextForRate.Before(next) {
+			next = nextForRate
+		}
+	}
+	return next, true
 }
 
 func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, price float64, priceCurrency string) error {
@@ -320,6 +469,7 @@ func (p *Portfolio) RefreshQuotes(provider QuoteProvider) error {
 		if quote.Name != "" {
 			pos.Name = quote.Name
 		}
+		p.updateQuoteCacheLocked(symbol, quote, now)
 	}
 	return nil
 }
@@ -384,6 +534,7 @@ func (p *Portfolio) Summary() Summary {
 		InitialCapitalUSD: p.initialCapitalUSD,
 		HKDRate:           p.hkdRate,
 		USDRate:           p.usdRate,
+		RefreshInterval:   p.refreshInterval,
 		Cash:              cash,
 		CashCNY:           p.cashCNY,
 		CashHKD:           p.cashHKD,
@@ -420,7 +571,77 @@ func (p *Portfolio) rebuildLocked() error {
 		}
 	}
 
+	p.applyQuoteCacheLocked()
 	return nil
+}
+
+func (p *Portfolio) applyQuoteCacheLocked() {
+	for symbol, pos := range p.positions {
+		quote := p.quoteCache[symbol]
+		if quote.Price <= 0 {
+			continue
+		}
+		pos.LastPrice = quote.Price
+		pos.PriceDigits = quote.PriceDigits
+		if quote.Name != "" {
+			pos.Name = quote.Name
+		}
+	}
+}
+
+func (p *Portfolio) applyCachedLastRefreshLocked() {
+	if len(p.positions) == 0 {
+		return
+	}
+	var lastRefreshAt time.Time
+	for symbol := range p.positions {
+		quote := p.quoteCache[symbol]
+		if quote.Price <= 0 || quote.UpdatedAt.IsZero() {
+			return
+		}
+		if lastRefreshAt.IsZero() || quote.UpdatedAt.Before(lastRefreshAt) {
+			lastRefreshAt = quote.UpdatedAt
+		}
+	}
+	p.lastRefreshAt = lastRefreshAt
+	p.lastRefreshErr = ""
+}
+
+func (p *Portfolio) updateQuoteCacheLocked(symbol string, quote Quote, updatedAt time.Time) {
+	if p.quoteCache == nil {
+		p.quoteCache = make(quoteCache)
+	}
+
+	cached := p.quoteCache[symbol]
+	if quote.Price > 0 {
+		cached.Price = quote.Price
+		cached.PriceDigits = quote.PriceDigits
+		cached.UpdatedAt = updatedAt
+	}
+	if quote.Name != "" {
+		cached.Name = quote.Name
+	}
+	if cached.Price > 0 {
+		p.quoteCache[symbol] = cached
+	}
+}
+
+func (p *Portfolio) quoteCacheStateLocked() quoteCache {
+	if len(p.positions) == 0 || len(p.quoteCache) == 0 {
+		return nil
+	}
+	cache := make(quoteCache, len(p.positions))
+	for symbol := range p.positions {
+		quote := p.quoteCache[symbol]
+		if quote.Price <= 0 {
+			continue
+		}
+		cache[symbol] = quote
+	}
+	if len(cache) == 0 {
+		return nil
+	}
+	return cache
 }
 
 func (p *Portfolio) applyBuyLocked(record TradeRecord) {
