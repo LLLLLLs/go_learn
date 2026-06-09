@@ -72,11 +72,11 @@ func TestPortfolioUSDBalanceAndUSStockSummary(t *testing.T) {
 	if summary.InitialCapitalUSD != 1000 {
 		t.Fatalf("InitialCapitalUSD = %v, want %v", summary.InitialCapitalUSD, 1000.0)
 	}
-	if summary.CashUSD != 800 {
-		t.Fatalf("CashUSD = %v, want %v", summary.CashUSD, 800.0)
+	if summary.CashUSD != 798.01 {
+		t.Fatalf("CashUSD = %v, want %v", summary.CashUSD, 798.01)
 	}
-	if summary.Cash != 5760 {
-		t.Fatalf("Cash = %v, want %v", summary.Cash, 5760.0)
+	if absFloat64(summary.Cash-5745.672) > 1e-9 {
+		t.Fatalf("Cash = %v, want %v", summary.Cash, 5745.672)
 	}
 	if len(summary.Holdings) != 1 {
 		t.Fatalf("len(Holdings) = %d, want 1", len(summary.Holdings))
@@ -84,6 +84,98 @@ func TestPortfolioUSDBalanceAndUSStockSummary(t *testing.T) {
 	holding := summary.Holdings[0]
 	if holding.DisplayCode != "US:AAPL" || holding.Currency != "USD" || holding.MarketValue != 1440 {
 		t.Fatalf("Holding = %+v", holding)
+	}
+	if holding.AvgCostLocal != 100 || holding.UnrealizedPnL != 0 {
+		t.Fatalf("Holding cost/pnl = %+v, want fee excluded from cost and pnl", holding)
+	}
+	if absFloat64(summary.FeeTotal-14.328) > 1e-9 {
+		t.Fatalf("FeeTotal = %v, want %v", summary.FeeTotal, 14.328)
+	}
+	if len(summary.FeeMarketTotals) != 1 || summary.FeeMarketTotals[0].Market != "美股" || summary.FeeMarketTotals[0].Currency != "USD" || summary.FeeMarketTotals[0].Amount != 1.99 {
+		t.Fatalf("FeeMarketTotals = %+v", summary.FeeMarketTotals)
+	}
+}
+
+func TestTradeFeesByMarketAndCashOnly(t *testing.T) {
+	aRecord := TradeRecord{Market: "A股", MarketCurrency: "CNY", Quantity: 100, Price: 10, MarketPrice: 10, FXRate: 1}
+	if fees := calculateTradeFees(aRecord); fees.Total() != 0 {
+		t.Fatalf("A股 fees = %+v, want zero", fees)
+	}
+
+	usRecord := TradeRecord{Market: "美股", MarketCurrency: "USD", Quantity: 10, Price: 100, MarketPrice: 100, FXRate: 7.2}
+	usRecord = withCalculatedFee(usRecord)
+	if usRecord.FeeTotal != 1.99 || usRecord.FeeTotalBase != 14.328 {
+		t.Fatalf("US fees = %+v total=%v base=%v", usRecord.Fees, usRecord.FeeTotal, usRecord.FeeTotalBase)
+	}
+
+	hkRecord := TradeRecord{Market: "港股", MarketCurrency: "HKD", Quantity: 1000, Price: 10, MarketPrice: 10, FXRate: 0.92}
+	hkRecord = withCalculatedFee(hkRecord)
+	wantHKFee := 18.0 + 10.0 + 0.27 + 0.42 + 0.015 + 0.565
+	if absFloat64(hkRecord.FeeTotal-wantHKFee) > 1e-9 {
+		t.Fatalf("HK fee total = %v, want %v", hkRecord.FeeTotal, wantHKFee)
+	}
+}
+
+func TestLoadPortfolioBackfillsFeesWithoutChangingPnL(t *testing.T) {
+	state := persistedState{
+		InitialCapitalUSD: 1000,
+		USDRate:           7.2,
+		Records: []TradeRecord{
+			{
+				ID:             "1",
+				CreatedAt:      time.Date(2026, 6, 9, 10, 0, 0, 0, time.Local),
+				Type:           TradeTypeBuy,
+				Code:           "AAPL",
+				DisplayCode:    "US:AAPL",
+				Symbol:         "usaapl",
+				Market:         "美股",
+				Currency:       "USD",
+				MarketCurrency: "USD",
+				Quantity:       1,
+				Price:          100,
+				MarketPrice:    100,
+				FXRate:         7.2,
+			},
+			{
+				ID:             "2",
+				CreatedAt:      time.Date(2026, 6, 9, 11, 0, 0, 0, time.Local),
+				Type:           TradeTypeSell,
+				Code:           "AAPL",
+				DisplayCode:    "US:AAPL",
+				Symbol:         "usaapl",
+				Market:         "美股",
+				Currency:       "USD",
+				MarketCurrency: "USD",
+				Quantity:       1,
+				Price:          120,
+				MarketPrice:    120,
+				FXRate:         7.2,
+			},
+		},
+	}
+	payload, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("Marshal returned error: %v", err)
+	}
+	p, err := LoadPortfolio(string(payload))
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	summary := p.Summary()
+	if absFloat64(summary.RealizedPnL-144) > 1e-9 {
+		t.Fatalf("RealizedPnL = %v, want %v", summary.RealizedPnL, 144.0)
+	}
+	if absFloat64(summary.FeeTotal-23.76) > 1e-9 {
+		t.Fatalf("FeeTotal = %v, want %v", summary.FeeTotal, 23.76)
+	}
+	if absFloat64(summary.CashUSD-1016.7) > 1e-9 {
+		t.Fatalf("CashUSD = %v, want %v", summary.CashUSD, 1016.7)
+	}
+	if len(summary.Records) != 2 || absFloat64(summary.Records[0].Fee-1.8) > 1e-9 || absFloat64(summary.Records[1].Fee-1.5) > 1e-9 {
+		t.Fatalf("Records = %+v", summary.Records)
+	}
+	if len(summary.FeeMarketTotals) != 1 || summary.FeeMarketTotals[0].Market != "美股" || absFloat64(summary.FeeMarketTotals[0].Amount-3.3) > 1e-9 {
+		t.Fatalf("FeeMarketTotals = %+v", summary.FeeMarketTotals)
 	}
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,10 +62,37 @@ type UI struct {
 	closing             bool
 	nextRefreshMu       sync.RWMutex
 	nextQuoteRefreshAt  time.Time
+	recordSort          recordSortState
 
 	suppressUserSelection bool
 	suppressQuantitySync  bool
 }
+
+type sortDirection int
+
+const (
+	sortNone sortDirection = iota
+	sortAscending
+	sortDescending
+)
+
+type recordSortState struct {
+	Column    int
+	Direction sortDirection
+}
+
+const (
+	recordColumnTime = iota
+	recordColumnType
+	recordColumnCode
+	recordColumnMarket
+	recordColumnCurrency
+	recordColumnQuantity
+	recordColumnPrice
+	recordColumnFXRate
+	recordColumnAmount
+	recordColumnFee
+)
 
 func NewUI(app fyne.App) (*UI, error) {
 	userStore, err := LoadUserStore()
@@ -91,6 +119,7 @@ func NewUI(app fyne.App) (*UI, error) {
 		summaryLabels:       make(map[string]*widget.Label),
 		stopRefreshCh:       make(chan struct{}),
 		resetRefreshTimerCh: make(chan struct{}, 1),
+		recordSort:          recordSortState{Column: recordColumnTime, Direction: sortAscending},
 	}
 
 	ui.build()
@@ -389,6 +418,12 @@ func (ui *UI) buildTables() fyne.CanvasObject {
 			label.SetText(ui.cellText(ui.recordsRows, id.Row, id.Col))
 		},
 	)
+	ui.recordsTable.OnSelected = func(id widget.TableCellID) {
+		ui.recordsTable.Unselect(id)
+		if id.Row == 0 {
+			ui.toggleRecordSort(id.Col)
+		}
+	}
 
 	ui.setColumnWidths()
 
@@ -416,7 +451,7 @@ func (ui *UI) setColumnWidths() {
 		ui.holdingsTable.SetColumnWidth(idx, width)
 	}
 
-	widths2 := []int{145, 70, 110, 70, 70, 60, 95, 70, 120}
+	widths2 := []int{145, 70, 110, 70, 70, 60, 95, 70, 120, 120}
 	for idx, width := range widths2 {
 		ui.recordsTable.SetColumnWidth(idx, width)
 	}
@@ -430,7 +465,7 @@ func (ui *UI) refreshView() {
 	ui.summaryLabels["cash"].SetText(formatCurrencyBreakdown(summary.CashCNY, summary.CashHKD, summary.CashUSD, summary.Cash))
 	ui.summaryLabels["marketValue"].SetText(formatMoney(summary.MarketValue))
 	ui.summaryLabels["totalAssets"].SetText(formatMoney(summary.TotalAssets))
-	ui.summaryLabels["realizedPnL"].SetText(formatMoney(summary.RealizedPnL))
+	ui.summaryLabels["realizedPnL"].SetText(formatRealizedPnLWithFees(summary.RealizedPnL, summary.FeeMarketTotals))
 	ui.summaryLabels["unrealizedPnL"].SetText(formatMoney(summary.UnrealizedPnL))
 	ui.summaryLabels["totalReturn"].SetText(formatMoney(summary.TotalReturn))
 	if ui.balanceCNYLabel != nil {
@@ -445,7 +480,7 @@ func (ui *UI) refreshView() {
 
 	ui.tableMu.Lock()
 	ui.holdingsRows = buildHoldingsRows(summary.Holdings)
-	ui.recordsRows = buildRecordRows(summary.Records)
+	ui.recordsRows = buildRecordRows(ui.sortedRecords(summary.Records), ui.recordSort)
 	ui.tableMu.Unlock()
 	ui.refreshRecentCodeOptions(summary.Records)
 	ui.refreshSellHoldingOptions(summary.Holdings)
@@ -701,8 +736,8 @@ func formatPrice(value float64, digits int) string {
 	return strconv.FormatFloat(value, 'f', digits, 64)
 }
 
-func buildRecordRows(records []TradeSummary) [][]string {
-	rows := [][]string{{
+func buildRecordRows(records []TradeSummary, sortState recordSortState) [][]string {
+	headers := []string{
 		"时间",
 		"类型",
 		"代码",
@@ -712,7 +747,10 @@ func buildRecordRows(records []TradeSummary) [][]string {
 		"价格",
 		"汇率",
 		"金额(CNY)",
-	}}
+		"手续费",
+	}
+	applyRecordSortHeader(headers, sortState)
+	rows := [][]string{headers}
 
 	for _, record := range records {
 		rows = append(rows, []string{
@@ -725,10 +763,78 @@ func buildRecordRows(records []TradeSummary) [][]string {
 			fmt.Sprintf("%.2f", record.Price),
 			fmt.Sprintf("%.4f", record.FXRate),
 			formatMoney(record.AmountBase),
+			formatMoneyWithUnit(record.Currency, record.Fee),
 		})
 	}
 
 	return rows
+}
+
+func applyRecordSortHeader(headers []string, sortState recordSortState) {
+	if sortState.Direction == sortNone || sortState.Column < 0 || sortState.Column >= len(headers) {
+		return
+	}
+	switch sortState.Direction {
+	case sortAscending:
+		headers[sortState.Column] += " ↑"
+	case sortDescending:
+		headers[sortState.Column] += " ↓"
+	}
+}
+
+func (ui *UI) toggleRecordSort(column int) {
+	if column < recordColumnTime || column > recordColumnFee {
+		return
+	}
+	if ui.recordSort.Column != column || ui.recordSort.Direction == sortNone {
+		ui.recordSort = recordSortState{Column: column, Direction: sortAscending}
+	} else if ui.recordSort.Direction == sortAscending {
+		ui.recordSort.Direction = sortDescending
+	} else {
+		ui.recordSort = recordSortState{Column: column, Direction: sortNone}
+	}
+	ui.refreshView()
+}
+
+func (ui *UI) sortedRecords(records []TradeSummary) []TradeSummary {
+	items := append([]TradeSummary(nil), records...)
+	if ui.recordSort.Direction == sortNone {
+		return items
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if ui.recordSort.Direction == sortDescending {
+			return compareRecordByColumn(items[j], items[i], ui.recordSort.Column)
+		}
+		return compareRecordByColumn(items[i], items[j], ui.recordSort.Column)
+	})
+	return items
+}
+
+func compareRecordByColumn(a, b TradeSummary, column int) bool {
+	switch column {
+	case recordColumnTime:
+		return a.Time.Before(b.Time)
+	case recordColumnType:
+		return a.TypeLabel < b.TypeLabel
+	case recordColumnCode:
+		return a.DisplayCode < b.DisplayCode
+	case recordColumnMarket:
+		return a.Market < b.Market
+	case recordColumnCurrency:
+		return a.Currency < b.Currency
+	case recordColumnQuantity:
+		return a.Quantity < b.Quantity
+	case recordColumnPrice:
+		return a.Price < b.Price
+	case recordColumnFXRate:
+		return a.FXRate < b.FXRate
+	case recordColumnAmount:
+		return a.AmountBase < b.AmountBase
+	case recordColumnFee:
+		return a.Fee < b.Fee
+	default:
+		return a.Time.Before(b.Time)
+	}
 }
 
 func buildStatus(summary Summary) string {
@@ -1101,6 +1207,26 @@ func parseIntField(raw string, field string) (int, error) {
 
 func formatMoney(value float64) string {
 	return fmt.Sprintf("¥%.2f", value)
+}
+
+func formatRealizedPnLWithFees(realizedPnL float64, fees []FeeMarketTotal) string {
+	if len(fees) == 0 {
+		return formatMoney(realizedPnL)
+	}
+	return fmt.Sprintf("%s\n手续费 %s", formatMoney(realizedPnL), formatFeeMarketTotals(fees))
+}
+
+func formatFeeMarketTotals(fees []FeeMarketTotal) string {
+	parts := make([]string, 0, len(fees))
+	for _, fee := range fees {
+		if fee.Amount > moneyEpsilon {
+			parts = append(parts, fmt.Sprintf("%s: %s", fee.Market, formatMoneyWithUnit(fee.Currency, fee.Amount)))
+		}
+	}
+	if len(parts) == 0 {
+		return "--"
+	}
+	return strings.Join(parts, " / ")
 }
 
 func formatPercent(value float64) string {

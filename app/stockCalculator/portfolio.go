@@ -27,19 +27,31 @@ const (
 )
 
 type TradeRecord struct {
-	ID             string    `json:"id"`
-	CreatedAt      time.Time `json:"created_at"`
-	Type           TradeType `json:"type"`
-	Code           string    `json:"code"`
-	DisplayCode    string    `json:"display_code"`
-	Symbol         string    `json:"symbol"`
-	Market         string    `json:"market"`
-	Currency       string    `json:"currency"`
-	MarketCurrency string    `json:"market_currency,omitempty"`
-	Quantity       int       `json:"quantity"`
-	Price          float64   `json:"price"`
-	MarketPrice    float64   `json:"market_price,omitempty"`
-	FXRate         float64   `json:"fx_rate"`
+	ID             string       `json:"id"`
+	CreatedAt      time.Time    `json:"created_at"`
+	Type           TradeType    `json:"type"`
+	Code           string       `json:"code"`
+	DisplayCode    string       `json:"display_code"`
+	Symbol         string       `json:"symbol"`
+	Market         string       `json:"market"`
+	Currency       string       `json:"currency"`
+	MarketCurrency string       `json:"market_currency,omitempty"`
+	Quantity       int          `json:"quantity"`
+	Price          float64      `json:"price"`
+	MarketPrice    float64      `json:"market_price,omitempty"`
+	FXRate         float64      `json:"fx_rate"`
+	Fees           FeeBreakdown `json:"fees,omitempty"`
+	FeeTotal       float64      `json:"fee_total,omitempty"`
+	FeeTotalBase   float64      `json:"fee_total_base,omitempty"`
+}
+
+type FeeBreakdown struct {
+	PlatformFee         float64 `json:"platform_fee,omitempty"`
+	StampDuty           float64 `json:"stamp_duty,omitempty"`
+	SFCTransactionLevy  float64 `json:"sfc_transaction_levy,omitempty"`
+	HKEXSettlementFee   float64 `json:"hkex_settlement_fee,omitempty"`
+	AFRCTransactionLevy float64 `json:"afrc_transaction_levy,omitempty"`
+	HKEXTradingFee      float64 `json:"hkex_trading_fee,omitempty"`
 }
 
 type persistedState struct {
@@ -127,10 +139,19 @@ type Summary struct {
 	RealizedPnL       float64
 	UnrealizedPnL     float64
 	TotalReturn       float64
+	FeeTotals         FeeBreakdown
+	FeeTotal          float64
+	FeeMarketTotals   []FeeMarketTotal
 	LastRefreshAt     time.Time
 	LastRefreshErr    string
 	Holdings          []HoldingSummary
 	Records           []TradeSummary
+}
+
+type FeeMarketTotal struct {
+	Market   string
+	Currency string
+	Amount   float64
 }
 
 type HoldingSummary struct {
@@ -158,6 +179,8 @@ type TradeSummary struct {
 	Price       float64
 	FXRate      float64
 	AmountBase  float64
+	Fee         float64
+	FeeBase     float64
 }
 
 func LoadPortfolio(raw string) (*Portfolio, error) {
@@ -208,7 +231,7 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 		}
 		p.quoteCache[normalized] = quote
 	}
-	p.records = append(p.records, state.Records...)
+	p.records = append(p.records, withCalculatedFees(state.Records)...)
 
 	if err := p.rebuildLocked(); err != nil {
 		return nil, err
@@ -219,6 +242,7 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 
 func (p *Portfolio) MarshalState() ([]byte, error) {
 	p.mu.RLock()
+	records := withCalculatedFees(p.records)
 	state := persistedState{
 		InitialCapitalCNY:  p.initialCapitalCNY,
 		InitialCapitalHKD:  p.initialCapitalHKD,
@@ -228,7 +252,7 @@ func (p *Portfolio) MarshalState() ([]byte, error) {
 		RefreshIntervalSec: int(p.refreshInterval / time.Second),
 		QuoteCache:         p.quoteCacheStateLocked(),
 		FXCache:            p.fxCache,
-		Records:            append([]TradeRecord(nil), p.records...),
+		Records:            records,
 	}
 	p.mu.RUnlock()
 
@@ -423,6 +447,7 @@ func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, pric
 		MarketPrice:    marketPrice,
 		FXRate:         fxRateForCurrency(priceCurrency, p.hkdRate, p.usdRate),
 	}
+	record = withCalculatedFee(record)
 
 	p.records = append(p.records, record)
 	return p.rebuildLocked()
@@ -521,12 +546,15 @@ func (p *Portfolio) Summary() Summary {
 			Price:       record.Price,
 			FXRate:      record.FXRate,
 			AmountBase:  float64(record.Quantity) * record.Price * record.FXRate,
+			Fee:         record.FeeTotal,
+			FeeBase:     record.FeeTotalBase,
 		})
 	}
 
 	initialCapital := p.initialCapitalCNY + p.initialCapitalHKD*p.hkdRate + p.initialCapitalUSD*p.usdRate
 	cash := p.cashCNY + p.cashHKD*p.hkdRate + p.cashUSD*p.usdRate
 	totalAssets := cash + marketValue
+	feeTotals := p.feeTotalsLocked()
 	return Summary{
 		InitialCapital:    initialCapital,
 		InitialCapitalCNY: p.initialCapitalCNY,
@@ -544,6 +572,9 @@ func (p *Portfolio) Summary() Summary {
 		RealizedPnL:       p.realizedPnL,
 		UnrealizedPnL:     unrealized,
 		TotalReturn:       totalAssets - initialCapital,
+		FeeTotals:         feeTotals,
+		FeeTotal:          feeTotals.Total(),
+		FeeMarketTotals:   p.feeMarketTotalsLocked(),
 		LastRefreshAt:     p.lastRefreshAt,
 		LastRefreshErr:    p.lastRefreshErr,
 		Holdings:          holdings,
@@ -664,7 +695,7 @@ func (p *Portfolio) applyBuyLocked(record TradeRecord) {
 	pos.Quantity = newQty
 	pos.AvgCostLocal = totalLocalCost / float64(newQty)
 	pos.AvgCostBase = totalBaseCost / float64(newQty)
-	p.adjustCashByCurrencyLocked(record.marketCurrency(), -record.marketPrice()*float64(record.Quantity))
+	p.adjustCashByCurrencyLocked(record.marketCurrency(), -(record.marketPrice()*float64(record.Quantity) + record.FeeTotal))
 }
 
 func (p *Portfolio) applySellLocked(record TradeRecord) error {
@@ -673,7 +704,7 @@ func (p *Portfolio) applySellLocked(record TradeRecord) error {
 		return fmt.Errorf("交易记录无效，%s 卖出股数超过持仓", record.DisplayCode)
 	}
 
-	p.adjustCashByCurrencyLocked(record.marketCurrency(), record.marketPrice()*float64(record.Quantity))
+	p.adjustCashByCurrencyLocked(record.marketCurrency(), record.marketPrice()*float64(record.Quantity)-record.FeeTotal)
 	p.realizedPnL += (record.Price*record.FXRate - pos.AvgCostBase) * float64(record.Quantity)
 
 	pos.Quantity -= record.Quantity
@@ -683,6 +714,156 @@ func (p *Portfolio) applySellLocked(record TradeRecord) error {
 	}
 
 	return nil
+}
+
+func withCalculatedFees(records []TradeRecord) []TradeRecord {
+	items := make([]TradeRecord, len(records))
+	for i, record := range records {
+		items[i] = withCalculatedFee(record)
+	}
+	return items
+}
+
+func withCalculatedFee(record TradeRecord) TradeRecord {
+	fees := calculateTradeFees(record)
+	record.Fees = fees
+	record.FeeTotal = fees.Total()
+	record.FeeTotalBase = record.FeeTotal * recordFeeFXRate(record)
+	return record
+}
+
+func calculateTradeFees(record TradeRecord) FeeBreakdown {
+	amount := record.marketPrice() * float64(record.Quantity)
+	if amount <= 0 || record.Quantity <= 0 {
+		return FeeBreakdown{}
+	}
+
+	switch record.Market {
+	case "美股":
+		return FeeBreakdown{
+			PlatformFee: minFloat64(maxFloat64(0.0099*float64(record.Quantity), 1.99), amount*0.015),
+		}
+	case "港股":
+		return FeeBreakdown{
+			PlatformFee:         maxFloat64(amount*0.0005, 18),
+			StampDuty:           ceilToDollar(amount * 0.001),
+			SFCTransactionLevy:  amount * 0.000027,
+			HKEXSettlementFee:   amount * 0.000042,
+			AFRCTransactionLevy: amount * 0.0000015,
+			HKEXTradingFee:      amount * 0.0000565,
+		}
+	default:
+		return FeeBreakdown{}
+	}
+}
+
+func (f FeeBreakdown) Total() float64 {
+	return f.PlatformFee + f.StampDuty + f.SFCTransactionLevy + f.HKEXSettlementFee + f.AFRCTransactionLevy + f.HKEXTradingFee
+}
+
+func (f FeeBreakdown) Add(other FeeBreakdown) FeeBreakdown {
+	return FeeBreakdown{
+		PlatformFee:         f.PlatformFee + other.PlatformFee,
+		StampDuty:           f.StampDuty + other.StampDuty,
+		SFCTransactionLevy:  f.SFCTransactionLevy + other.SFCTransactionLevy,
+		HKEXSettlementFee:   f.HKEXSettlementFee + other.HKEXSettlementFee,
+		AFRCTransactionLevy: f.AFRCTransactionLevy + other.AFRCTransactionLevy,
+		HKEXTradingFee:      f.HKEXTradingFee + other.HKEXTradingFee,
+	}
+}
+
+func (p *Portfolio) feeTotalsLocked() FeeBreakdown {
+	var totals FeeBreakdown
+	for _, record := range p.records {
+		totals = totals.Add(record.Fees.ToBase(recordFeeFXRate(record)))
+	}
+	return totals
+}
+
+func (p *Portfolio) feeMarketTotalsLocked() []FeeMarketTotal {
+	type key struct {
+		market   string
+		currency string
+	}
+	amounts := make(map[key]float64)
+	for _, record := range p.records {
+		if record.FeeTotal <= moneyEpsilon {
+			continue
+		}
+		item := key{market: record.Market, currency: record.marketCurrency()}
+		amounts[item] += record.FeeTotal
+	}
+
+	items := make([]FeeMarketTotal, 0, len(amounts))
+	for item, amount := range amounts {
+		items = append(items, FeeMarketTotal{
+			Market:   item.market,
+			Currency: item.currency,
+			Amount:   amount,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Market == items[j].Market {
+			return items[i].Currency < items[j].Currency
+		}
+		return feeMarketSortKey(items[i].Market) < feeMarketSortKey(items[j].Market)
+	})
+	return items
+}
+
+func feeMarketSortKey(market string) string {
+	switch market {
+	case "美股":
+		return "1"
+	case "港股":
+		return "2"
+	case "A股":
+		return "3"
+	default:
+		return "9" + market
+	}
+}
+
+func (f FeeBreakdown) ToBase(rate float64) FeeBreakdown {
+	if rate <= 0 {
+		rate = 1
+	}
+	return FeeBreakdown{
+		PlatformFee:         f.PlatformFee * rate,
+		StampDuty:           f.StampDuty * rate,
+		SFCTransactionLevy:  f.SFCTransactionLevy * rate,
+		HKEXSettlementFee:   f.HKEXSettlementFee * rate,
+		AFRCTransactionLevy: f.AFRCTransactionLevy * rate,
+		HKEXTradingFee:      f.HKEXTradingFee * rate,
+	}
+}
+
+func recordFeeFXRate(record TradeRecord) float64 {
+	if normalizePriceCurrency(record.marketCurrency()) == "CNY" || record.FXRate <= 0 {
+		return 1
+	}
+	return record.FXRate
+}
+
+func ceilToDollar(value float64) float64 {
+	if value <= 0 {
+		return 0
+	}
+	return float64(int(value + 0.999999999))
+}
+
+func maxFloat64(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func minFloat64(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (p *Portfolio) adjustBalanceByNormalizedCurrency(delta float64, currency string) error {
