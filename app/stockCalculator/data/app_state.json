@@ -3,7 +3,10 @@
   "users": [
     {
       "id": "default",
-      "name": "花间"
+      "account": "huajian",
+      "name": "花间",
+      "password_salt": "b4959a46f27798ffc0c5361365105a0e",
+      "password_hash": "998d97c1cd78061587a9996b61a650d4c0a27a430a94117cd3c2ca77194545d2"
     }
   ]
 }

@@ -1,11 +1,11 @@
-package main
+package stockcalculator
 
 import (
 	"os"
 	"runtime"
 )
 
-func configureFyneFont() {
+func ConfigureFyneFont() {
 	if os.Getenv("FYNE_FONT") != "" {
 		return
 	}

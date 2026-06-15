@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>股票收益追踪计算器</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>股票收益追踪计算器</h1>
+      <p id="market-status">{{.Status}}</p>
+    </div>
+    <div class="top-actions">
+      <span id="refresh-countdown" data-next-refresh="{{.NextRefreshUnix}}">{{.NextRefresh}}</span>
+      <form method="post" action="/refresh" id="refresh-all-form">
+        <input type="hidden" name="target" value="all">
+        <button type="submit" id="refresh-all-button">刷新全部</button>
+      </form>
+      <details class="account-menu">
+        <summary>{{.CurrentUser.Name}}</summary>
+        <div class="account-popover">
+          <div class="account-meta">
+            <span>账号</span>
+            <strong>{{.CurrentUser.Account}}</strong>
+          </div>
+          <form method="post" action="/account" class="account-form">
+            <label>用户名<input name="name" value="{{.CurrentUser.Name}}" required></label>
+            <label>当前密码<input name="current_password" type="password" autocomplete="current-password" placeholder="改密码时填写"></label>
+            <label>新密码<input name="new_password" type="password" autocomplete="new-password" placeholder="留空不修改"></label>
+            <label>重复新密码<input name="new_password_confirm" type="password" autocomplete="new-password" placeholder="再次输入新密码"></label>
+            <button type="submit">保存</button>
+          </form>
+          <form method="post" action="/logout">
+            <button type="submit" class="ghost-button">退出登录</button>
+          </form>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <main>
+    {{if .Notice.Message}}
+      <div class="notice {{.Notice.Type}}">{{.Notice.Message}}</div>
+    {{end}}
+
+    <section class="metrics">
+      <article><span>净入金</span><strong data-metric="capitalBreakdown">{{.CapitalBreakdown}}</strong></article>
+      <article><span>现金余额</span><strong data-metric="cashBreakdown">{{.CashBreakdown}}</strong></article>
+      <article>
+        <span>持仓市值 / 总资产</span>
+        <strong><span data-metric="marketValue">{{printf "¥%.2f" .Summary.MarketValue}}</span> / <span data-metric="totalAssets">{{printf "¥%.2f" .Summary.TotalAssets}}</span></strong>
+      </article>
+      <article class="metric-wide">
+        <span>已实现盈亏 / 浮动盈亏 / 累计收益</span>
+        <strong>
+          <span data-metric="realizedPnL" class="{{pnlClass (printf "%.2f" .Summary.RealizedPnL)}}">{{printf "¥%.2f" .Summary.RealizedPnL}}</span> /
+          <span data-metric="unrealizedPnL" class="{{pnlClass (printf "%.2f" .Summary.UnrealizedPnL)}}">{{printf "¥%.2f" .Summary.UnrealizedPnL}}</span> /
+          <span data-metric="totalReturn" class="{{pnlClass (printf "%.2f" .Summary.TotalReturn)}}">{{printf "¥%.2f" .Summary.TotalReturn}}</span>
+        </strong>
+        <small>手续费 <span data-metric="feeTotals">{{.FeeTotals}}</span></small>
+      </article>
+    </section>
+
+    <section class="workbench">
+      <div class="panel trade-panel">
+        <h2>交易记录</h2>
+        <form method="post" action="/trade" class="form-grid">
+          <label>类型
+            <select name="type" id="trade-type">
+              <option value="buy">买入</option>
+              <option value="sell">平仓</option>
+            </select>
+          </label>
+          <label>股票代码
+            <input name="code" id="code-input" list="recent-codes" placeholder="A股 600519 / 港股 00700 / 美股 AAPL" required>
+            <datalist id="recent-codes">
+              {{range .RecentCodes}}<option value="{{.}}">{{.}}</option>{{end}}
+            </datalist>
+          </label>
+          <label class="sell-only">当前持仓
+            <select id="sell-select">
+              {{range .SellOptions}}<option value="{{.Code}}" data-quantity="{{.Quantity}}">{{.Label}}</option>{{end}}
+            </select>
+          </label>
+          <label>股数
+            <input name="quantity" id="quantity-input" type="number" min="1" step="1" required>
+          </label>
+          <label>股价币种
+            <select name="currency" id="currency-select">
+              <option value="港币">港币</option>
+              <option value="RMB">RMB</option>
+              <option value="美元">美元</option>
+            </select>
+          </label>
+          <label>价格(本币)
+            <input name="price" type="number" min="0" step="0.0001" required>
+          </label>
+          <button type="submit">添加记录</button>
+        </form>
+      </div>
+
+      <div class="side-stack">
+        <div class="panel">
+          <h2>余额</h2>
+          <div class="balances">
+            <span>{{.CNYBalance}}</span>
+            <span>{{.HKDBalance}}</span>
+            <span>{{.USDBalance}}</span>
+          </div>
+          <form method="post" action="/balance" class="form-grid compact">
+            <label>金额<input name="amount" type="number" min="0" step="0.01" required></label>
+            <label>币种
+              <select name="currency">
+                <option value="RMB">RMB</option>
+                <option value="港币">港币</option>
+                <option value="美元">美元</option>
+              </select>
+            </label>
+            <button name="direction" value="in" type="submit">增加</button>
+            <button name="direction" value="out" type="submit">减少</button>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>当前持仓</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>代码</th><th>名称</th><th>市场</th><th>股数</th><th>成本价</th><th>现价</th><th>市值(本币)</th><th>市值(RMB)</th><th>浮盈亏(本币)</th><th>浮盈亏(RMB)</th><th>盈亏%</th></tr></thead>
+          <tbody id="holdings-body">
+            {{range .Holdings}}
+              <tr><td>{{.DisplayCode}}</td><td>{{.Name}}</td><td>{{.Market}}</td><td>{{.Quantity}}</td><td>{{.AvgCostLocal}} {{.Currency}}</td><td>{{.CurrentPrice}} {{.Currency}}</td><td>{{.MarketValueLocal}}</td><td>{{.MarketValue}}</td><td class="{{pnlClass .UnrealizedPnLLocal}}">{{.UnrealizedPnLLocal}}</td><td class="{{pnlClass .UnrealizedPnL}}">{{.UnrealizedPnL}}</td><td class="{{pnlClass .ReturnPercent}}">{{.ReturnPercent}}</td></tr>
+            {{else}}
+              <tr><td colspan="11" class="empty">暂无持仓</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>交易历史</h2>
+      <div class="table-wrap">
+        <table id="records-table">
+          <thead><tr><th data-sort="time">时间</th><th data-sort="text">类型</th><th data-sort="text">代码</th><th data-sort="text">市场</th><th data-sort="text">币种</th><th data-sort="number">股数</th><th data-sort="number">价格</th><th data-sort="number">汇率</th><th data-sort="number">金额(CNY)</th><th data-sort="number">盈亏(CNY)</th><th data-sort="number">手续费</th></tr></thead>
+          <tbody id="records-body">
+            {{range .Records}}
+              <tr><td>{{.Time}}</td><td>{{.TypeLabel}}</td><td>{{.DisplayCode}}</td><td>{{.Market}}</td><td>{{.Currency}}</td><td>{{.Quantity}}</td><td>{{.Price}}</td><td>{{.FXRate}}</td><td>{{.AmountBase}}</td><td class="{{pnlClass .RealizedPnL}}">{{.RealizedPnL}}</td><td>{{.Fee}}</td></tr>
+            {{else}}
+              <tr><td colspan="11" class="empty">暂无交易记录</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tradeType = document.querySelector("#trade-type");
+    const codeInput = document.querySelector("#code-input");
+    const sellSelect = document.querySelector("#sell-select");
+    const quantityInput = document.querySelector("#quantity-input");
+    const currencySelect = document.querySelector("#currency-select");
+    const sellBlocks = document.querySelectorAll(".sell-only");
+    const countdown = document.querySelector("#refresh-countdown");
+    const statusLine = document.querySelector("#market-status");
+    const refreshForm = document.querySelector("#refresh-all-form");
+    const refreshButton = document.querySelector("#refresh-all-button");
+    const holdingsBody = document.querySelector("#holdings-body");
+    const recordsTable = document.querySelector("#records-table");
+    const recordsBody = document.querySelector("#records-body");
+    const initialRecordRows = recordsBody ? Array.from(recordsBody.querySelectorAll("tr")) : [];
+    const recordSort = { column: 0, direction: "desc" };
+    let refreshInFlight = false;
+
+    function inferCurrency(code) {
+      const value = (code || "").trim().toLowerCase();
+      if (!value) return "港币";
+      if (value.startsWith("us:") || value.startsWith("us.") || /^[a-z]/i.test(value)) return "美元";
+      if (value.startsWith("sh") || value.startsWith("sz") || value.startsWith("bj") || /^[45689]\d{5}$/.test(value)) return "RMB";
+      return "港币";
+    }
+    function applySellSelection() {
+      const selected = sellSelect.options[sellSelect.selectedIndex];
+      if (!selected) return;
+      codeInput.value = selected.value;
+      quantityInput.max = selected.dataset.quantity || "";
+      if (!quantityInput.value) quantityInput.value = selected.dataset.quantity || "";
+      currencySelect.value = inferCurrency(selected.value);
+    }
+    function updateMode() {
+      const isSell = tradeType.value === "sell";
+      sellBlocks.forEach((item) => item.classList.toggle("hidden", !isSell));
+      codeInput.readOnly = isSell;
+      quantityInput.max = "";
+      if (isSell) applySellSelection();
+    }
+    tradeType.addEventListener("change", updateMode);
+    sellSelect.addEventListener("change", applySellSelection);
+    codeInput.addEventListener("input", () => currencySelect.value = inferCurrency(codeInput.value));
+    updateMode();
+
+    function countdownText(seconds) {
+      if (seconds >= 60) {
+        return `下次更新: ${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, "0")}秒`;
+      }
+      return `下次更新: ${seconds}秒`;
+    }
+    async function refreshAll(auto = false) {
+      if (refreshInFlight) return;
+      refreshInFlight = true;
+      if (refreshButton) refreshButton.disabled = true;
+      countdown.textContent = "正在刷新...";
+      const body = new URLSearchParams({ target: "all", partial: "1" });
+      if (auto) body.set("auto", "1");
+      try {
+        const response = await fetch("/refresh", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        });
+        if (!response.ok) throw new Error("refresh failed");
+        applyRefreshPayload(await response.json());
+      } catch (error) {
+        window.location.reload();
+      } finally {
+        refreshInFlight = false;
+        if (refreshButton) refreshButton.disabled = false;
+      }
+    }
+    function setMetric(name, value, className) {
+      const node = document.querySelector(`[data-metric="${name}"]`);
+      if (!node) return;
+      node.textContent = value || "";
+      if (className !== undefined) node.className = className || "";
+    }
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+    function holdingRow(item) {
+      const localClass = item.UnrealizedPnLLocal?.includes("-") ? "loss" : (item.UnrealizedPnLLocal ? "gain" : "");
+      const baseClass = item.UnrealizedPnL?.includes("-") ? "loss" : (item.UnrealizedPnL ? "gain" : "");
+      const returnClass = item.ReturnPercent?.includes("-") ? "loss" : (item.ReturnPercent ? "gain" : "");
+      return `<tr>
+        <td>${escapeHTML(item.DisplayCode)}</td>
+        <td>${escapeHTML(item.Name)}</td>
+        <td>${escapeHTML(item.Market)}</td>
+        <td>${escapeHTML(item.Quantity)}</td>
+        <td>${escapeHTML(item.AvgCostLocal)} ${escapeHTML(item.Currency)}</td>
+        <td>${escapeHTML(item.CurrentPrice)} ${escapeHTML(item.Currency)}</td>
+        <td>${escapeHTML(item.MarketValueLocal)}</td>
+        <td>${escapeHTML(item.MarketValue)}</td>
+        <td class="${localClass}">${escapeHTML(item.UnrealizedPnLLocal)}</td>
+        <td class="${baseClass}">${escapeHTML(item.UnrealizedPnL)}</td>
+        <td class="${returnClass}">${escapeHTML(item.ReturnPercent)}</td>
+      </tr>`;
+    }
+    function applyRefreshPayload(payload) {
+      if (!payload) return;
+      if (statusLine) statusLine.textContent = payload.status || "";
+      if (countdown) {
+        countdown.dataset.nextRefresh = String(payload.next_refresh_unix || "0");
+        countdown.textContent = payload.next_refresh || "下次更新: --";
+      }
+      const metrics = payload.metrics || {};
+      setMetric("capitalBreakdown", metrics.capital_breakdown);
+      setMetric("cashBreakdown", metrics.cash_breakdown);
+      setMetric("marketValue", metrics.market_value);
+      setMetric("totalAssets", metrics.total_assets);
+      setMetric("realizedPnL", metrics.realized_pnl, metrics.realized_pnl_class);
+      setMetric("feeTotals", metrics.fee_totals);
+      setMetric("unrealizedPnL", metrics.unrealized_pnl, metrics.unrealized_class);
+      setMetric("totalReturn", metrics.total_return, metrics.total_return_class);
+      if (holdingsBody) {
+        const holdings = payload.holdings || [];
+        holdingsBody.innerHTML = holdings.length
+          ? holdings.map(holdingRow).join("")
+          : '<tr><td colspan="11" class="empty">暂无持仓</td></tr>';
+      }
+    }
+    function parseSortableNumber(value) {
+      const normalized = String(value || "").replace(/[^\d.-]/g, "");
+      if (!normalized || normalized === "-") return 0;
+      return Number(normalized) || 0;
+    }
+    function recordCellValue(row, column, type) {
+      const text = row.children[column]?.textContent?.trim() || "";
+      if (type === "time") return new Date(text.replace(" ", "T")).getTime() || 0;
+      if (type === "number") return parseSortableNumber(text);
+      return text;
+    }
+    function compareRecordRows(left, right, column, type) {
+      if (column === 9) {
+        const leftHasPnL = Boolean(left.children[column]?.textContent?.trim());
+        const rightHasPnL = Boolean(right.children[column]?.textContent?.trim());
+        if (leftHasPnL !== rightHasPnL) return leftHasPnL ? -1 : 1;
+      }
+      const a = recordCellValue(left, column, type);
+      const b = recordCellValue(right, column, type);
+      if (type === "text") return String(a).localeCompare(String(b), "zh-Hans-CN");
+      return a === b ? 0 : a < b ? -1 : 1;
+    }
+    function updateRecordSortHeaders() {
+      recordsTable?.querySelectorAll("thead th").forEach((header, index) => {
+        header.classList.toggle("sorted", recordSort.direction !== "none" && recordSort.column === index);
+        header.dataset.direction = recordSort.direction !== "none" && recordSort.column === index ? recordSort.direction : "";
+      });
+    }
+    function applyRecordSort() {
+      if (!recordsBody || !recordsTable) return;
+      if (recordSort.direction === "none") {
+        recordsBody.replaceChildren(...initialRecordRows);
+        updateRecordSortHeaders();
+        return;
+      }
+      const header = recordsTable.querySelectorAll("thead th")[recordSort.column];
+      const type = header?.dataset.sort || "text";
+      const rows = Array.from(recordsBody.querySelectorAll("tr")).filter((row) => !row.querySelector(".empty"));
+      rows.sort((left, right) => {
+        const result = compareRecordRows(left, right, recordSort.column, type);
+        if (recordSort.column === 9) {
+          const leftHasPnL = Boolean(left.children[recordSort.column]?.textContent?.trim());
+          const rightHasPnL = Boolean(right.children[recordSort.column]?.textContent?.trim());
+          if (leftHasPnL !== rightHasPnL) return result;
+        }
+        return recordSort.direction === "desc" ? -result : result;
+      });
+      recordsBody.replaceChildren(...rows);
+      updateRecordSortHeaders();
+    }
+    recordsTable?.querySelectorAll("thead th[data-sort]").forEach((header, column) => {
+      header.tabIndex = 0;
+      header.addEventListener("click", () => {
+        if (recordSort.column !== column || recordSort.direction === "none") {
+          recordSort.column = column;
+          recordSort.direction = "desc";
+        } else if (recordSort.direction === "desc") {
+          recordSort.direction = "asc";
+        } else {
+          recordSort.direction = "none";
+        }
+        applyRecordSort();
+      });
+      header.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        header.click();
+      });
+    });
+    applyRecordSort();
+    refreshForm?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      refreshAll(false);
+    });
+    function tickRefreshCountdown() {
+      if (!countdown) return;
+      const next = Number(countdown.dataset.nextRefresh || "0") * 1000;
+      if (!next) {
+        countdown.textContent = "下次更新: --";
+        return;
+      }
+      const seconds = Math.max(0, Math.ceil((next - Date.now()) / 1000));
+      countdown.textContent = countdownText(seconds);
+      if (seconds <= 0) refreshAll(true);
+    }
+    tickRefreshCountdown();
+    setInterval(tickRefreshCountdown, 1000);
+  </script>
+</body>
+</html>

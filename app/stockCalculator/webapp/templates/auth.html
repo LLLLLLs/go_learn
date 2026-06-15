@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{if eq .Mode "register"}}注册{{else}}登录{{end}} - 股票收益追踪计算器</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-panel">
+      <h1>股票收益追踪计算器</h1>
+      <h2>{{if eq .Mode "register"}}注册账号{{else}}账号登录{{end}}</h2>
+      {{if .Notice.Message}}
+        <div class="notice {{.Notice.Type}}">{{.Notice.Message}}</div>
+      {{end}}
+      <form method="post" action="{{if eq .Mode "register"}}/register{{else}}/login{{end}}" class="auth-form">
+        <label>账号<input name="account" value="{{.Account}}" autocomplete="username" required autofocus></label>
+        <label>密码<input name="password" type="password" autocomplete="{{if eq .Mode "register"}}new-password{{else}}current-password{{end}}" required></label>
+        {{if eq .Mode "register"}}
+          <label>重复密码<input name="password_confirm" type="password" autocomplete="new-password" required></label>
+          <label>用户名<input name="name" value="{{.Name}}" autocomplete="name" required></label>
+        {{end}}
+        <button type="submit">{{if eq .Mode "register"}}注册并进入{{else}}登录{{end}}</button>
+      </form>
+      <p class="auth-switch">
+        {{if eq .Mode "register"}}
+          已有账号？<a href="/login">去登录</a>
+        {{else}}
+          没有账号？<a href="/register">注册</a>
+        {{end}}
+      </p>
+    </section>
+  </main>
+</body>
+</html>

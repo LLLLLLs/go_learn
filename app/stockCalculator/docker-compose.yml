@@ -1,0 +1,13 @@
+services:
+  stockcalculator-webapp:
+    image: stockcalculator-webapp:latest
+    container_name: stockcalculator-webapp
+    user: "0:0"
+    environment:
+      PORT: "8080"
+      STOCKCALC_DATA_DIR: /data
+    ports:
+      - "8088:8080"
+    volumes:
+      - ./data:/data
+    restart: always

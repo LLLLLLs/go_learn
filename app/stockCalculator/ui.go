@@ -1,4 +1,4 @@
-package main
+package stockcalculator
 
 import (
 	"fmt"

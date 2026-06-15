@@ -1,6 +1,10 @@
-package main
+package stockcalculator
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,8 +31,11 @@ const (
 )
 
 type UserProfile struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID           string `json:"id"`
+	Account      string `json:"account,omitempty"`
+	Name         string `json:"name"`
+	PasswordSalt string `json:"password_salt,omitempty"`
+	PasswordHash string `json:"password_hash,omitempty"`
 }
 
 type appState struct {
@@ -41,6 +48,9 @@ type UserStore struct {
 }
 
 func DataRootPath() string {
+	if dataDir := strings.TrimSpace(os.Getenv("STOCKCALC_DATA_DIR")); dataDir != "" {
+		return dataDir
+	}
 	return filepath.Join(".", dataDirName)
 }
 
@@ -93,6 +103,16 @@ func LoadPortfolioForUser(store *UserStore, prefs fyne.Preferences) (*Portfolio,
 	profile := store.CurrentUser()
 	statePath := UserPortfolioStatePath(profile.ID)
 	portfolio, err := LoadPortfolioFromStorage(statePath, prefs)
+	if err != nil {
+		return nil, "", err
+	}
+	return portfolio, statePath, nil
+}
+
+func LoadPortfolioFileForUser(store *UserStore) (*Portfolio, string, error) {
+	profile := store.CurrentUser()
+	statePath := UserPortfolioStatePath(profile.ID)
+	portfolio, err := LoadPortfolioFromStorage(statePath, nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -260,6 +280,16 @@ func (s *UserStore) SetCurrentUserByName(name string) (UserProfile, error) {
 	return UserProfile{}, errors.New("用户不存在")
 }
 
+func (s *UserStore) SetCurrentUserByID(id string) (UserProfile, error) {
+	id = strings.TrimSpace(id)
+	user := s.findUserByID(id)
+	if user == nil {
+		return UserProfile{}, errors.New("用户不存在")
+	}
+	s.State.CurrentUserID = user.ID
+	return *user, s.Save()
+}
+
 func (s *UserStore) CreateUser(name string) (UserProfile, error) {
 	var err error
 	name, err = s.validateUniqueUserName("", name)
@@ -288,6 +318,101 @@ func (s *UserStore) CreateUser(name string) (UserProfile, error) {
 	return user, nil
 }
 
+func (s *UserStore) RegisterUser(account, password, passwordConfirm, name string) (UserProfile, error) {
+	account, err := validateAccount(account)
+	if err != nil {
+		return UserProfile{}, err
+	}
+	if err := validatePassword(password); err != nil {
+		return UserProfile{}, err
+	}
+	if password != passwordConfirm {
+		return UserProfile{}, errors.New("两次输入的密码不一致")
+	}
+	name, err = s.validateUniqueUserName("", name)
+	if err != nil {
+		return UserProfile{}, err
+	}
+	if s.findUserByAccount(account) != nil {
+		return UserProfile{}, errors.New("账号已存在")
+	}
+
+	id := slugifyUserID(account)
+	if id == "" {
+		id = "user-" + time.Now().Format("20060102150405")
+	}
+	originalID := id
+	index := 2
+	for s.findUserByID(id) != nil {
+		id = fmt.Sprintf("%s-%d", originalID, index)
+		index++
+	}
+
+	salt, hash, err := hashPassword(password)
+	if err != nil {
+		return UserProfile{}, err
+	}
+	user := UserProfile{ID: id, Account: account, Name: name, PasswordSalt: salt, PasswordHash: hash}
+	s.State.Users = append(s.State.Users, user)
+	s.State.CurrentUserID = user.ID
+	if err := s.Save(); err != nil {
+		return UserProfile{}, err
+	}
+	return user, nil
+}
+
+func (s *UserStore) Authenticate(account, password string) (UserProfile, error) {
+	account, err := validateAccount(account)
+	if err != nil {
+		return UserProfile{}, errors.New("账号或密码不正确")
+	}
+	user := s.findUserByAccount(account)
+	if user == nil || user.PasswordHash == "" || user.PasswordSalt == "" || !verifyPassword(password, user.PasswordSalt, user.PasswordHash) {
+		return UserProfile{}, errors.New("账号或密码不正确")
+	}
+	return *user, nil
+}
+
+func (s *UserStore) UpdateUserProfile(id, name, currentPassword, newPassword, newPasswordConfirm string) (UserProfile, error) {
+	name, err := s.validateUniqueUserName(id, name)
+	if err != nil {
+		return UserProfile{}, err
+	}
+
+	user := s.findUserByID(id)
+	if user == nil {
+		return UserProfile{}, errors.New("用户不存在")
+	}
+	user.Name = name
+
+	changingPassword := strings.TrimSpace(currentPassword) != "" || strings.TrimSpace(newPassword) != "" || strings.TrimSpace(newPasswordConfirm) != ""
+	if changingPassword {
+		if strings.TrimSpace(currentPassword) == "" {
+			return UserProfile{}, errors.New("请输入当前密码")
+		}
+		if user.PasswordHash == "" || user.PasswordSalt == "" || !verifyPassword(currentPassword, user.PasswordSalt, user.PasswordHash) {
+			return UserProfile{}, errors.New("当前密码不正确")
+		}
+		if err := validatePassword(newPassword); err != nil {
+			return UserProfile{}, err
+		}
+		if newPassword != newPasswordConfirm {
+			return UserProfile{}, errors.New("两次输入的新密码不一致")
+		}
+		salt, hash, err := hashPassword(newPassword)
+		if err != nil {
+			return UserProfile{}, err
+		}
+		user.PasswordSalt = salt
+		user.PasswordHash = hash
+	}
+
+	if err := s.Save(); err != nil {
+		return UserProfile{}, err
+	}
+	return *user, nil
+}
+
 func (s *UserStore) RenameUser(id, name string) (UserProfile, error) {
 	name, err := s.validateUniqueUserName(id, name)
 	if err != nil {
@@ -314,6 +439,16 @@ func (s *UserStore) findUserByID(id string) *UserProfile {
 	return nil
 }
 
+func (s *UserStore) findUserByAccount(account string) *UserProfile {
+	account = strings.ToLower(strings.TrimSpace(account))
+	for i := range s.State.Users {
+		if strings.EqualFold(s.State.Users[i].Account, account) {
+			return &s.State.Users[i]
+		}
+	}
+	return nil
+}
+
 func (s *UserStore) validateUniqueUserName(exceptID, name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -325,6 +460,43 @@ func (s *UserStore) validateUniqueUserName(exceptID, name string) (string, error
 		}
 	}
 	return name, nil
+}
+
+func validateAccount(account string) (string, error) {
+	account = strings.ToLower(strings.TrimSpace(account))
+	if account == "" {
+		return "", errors.New("账号不能为空")
+	}
+	for _, r := range account {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+			continue
+		}
+		return "", errors.New("账号只能包含字母、数字、横线、下划线和点")
+	}
+	return account, nil
+}
+
+func validatePassword(password string) error {
+	if strings.TrimSpace(password) == "" {
+		return errors.New("密码不能为空")
+	}
+	return nil
+}
+
+func hashPassword(password string) (string, string, error) {
+	saltBytes := make([]byte, 16)
+	if _, err := rand.Read(saltBytes); err != nil {
+		return "", "", fmt.Errorf("生成密码盐失败: %w", err)
+	}
+	salt := hex.EncodeToString(saltBytes)
+	sum := sha256.Sum256([]byte(salt + ":" + password))
+	return salt, hex.EncodeToString(sum[:]), nil
+}
+
+func verifyPassword(password, salt, expectedHash string) bool {
+	sum := sha256.Sum256([]byte(salt + ":" + password))
+	actualHash := hex.EncodeToString(sum[:])
+	return subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedHash)) == 1
 }
 
 func slugifyUserID(name string) string {

@@ -3,14 +3,16 @@ package main
 import (
 	"log"
 
+	stockcalculator "stockCalculator"
+
 	"fyne.io/fyne/app"
 )
 
 func main() {
-	configureFyneFont()
+	stockcalculator.ConfigureFyneFont()
 
 	application := app.NewWithID("com.huajian.stockcalculator")
-	ui, err := NewUI(application)
+	ui, err := stockcalculator.NewUI(application)
 	if err != nil {
 		log.Fatal(err)
 	}
