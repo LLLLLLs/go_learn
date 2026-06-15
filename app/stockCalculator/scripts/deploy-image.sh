@@ -6,6 +6,9 @@ TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
 SERVER_USER="${SERVER_USER:-root}"
 SERVER_PORT="${SERVER_PORT:-22}"
 REMOTE_IMAGE_NAME="${REMOTE_IMAGE_NAME:-$IMAGE_NAME}"
+SKIP_BUILD="${SKIP_BUILD:-0}"
+DEPLOY_AFTER_PUSH="${DEPLOY_AFTER_PUSH:-1}"
+REMOTE_COMPOSE_DIR="${REMOTE_COMPOSE_DIR:-/root/stock}"
 
 if [[ -z "${SERVER_IP:-}" ]]; then
   echo "ERROR: SERVER_IP is required" >&2
@@ -29,8 +32,10 @@ if ! command -v sshpass >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building $IMAGE_NAME for $TARGET_PLATFORM..." >&2
-docker build --platform "$TARGET_PLATFORM" -t "$IMAGE_NAME" .
+if [[ "$SKIP_BUILD" != "1" ]]; then
+  echo "Building $IMAGE_NAME for $TARGET_PLATFORM..." >&2
+  docker build --platform "$TARGET_PLATFORM" -t "$IMAGE_NAME" .
+fi
 
 REMOTE="${SERVER_USER}@${SERVER_IP}"
 SSH_BASE=(
@@ -48,6 +53,11 @@ docker save "$IMAGE_NAME" \
 
 if [[ "$REMOTE_IMAGE_NAME" != "$IMAGE_NAME" ]]; then
   "${SSH_BASE[@]}" "$REMOTE" "docker tag '$IMAGE_NAME' '$REMOTE_IMAGE_NAME'"
+fi
+
+if [[ "$DEPLOY_AFTER_PUSH" == "1" ]]; then
+  echo "Restarting remote compose service in $REMOTE_COMPOSE_DIR..."
+  "${SSH_BASE[@]}" "$REMOTE" "cd '$REMOTE_COMPOSE_DIR' && docker compose up -d --force-recreate"
 fi
 
 echo "Done."

@@ -822,7 +822,7 @@ func formatMoneyWithUnit(currency string, value float64) string {
 }
 
 func formatCurrencyBreakdown(cny, hkd, usd, total float64) string {
-	return fmt.Sprintf("RMB %s / HKD %s / USD %s / 合计 %s", formatMoney(cny), formatMoneyWithUnit("HKD", hkd), formatMoneyWithUnit("USD", usd), formatMoney(total))
+	return fmt.Sprintf("RMB %s\nHKD %s\nUSD %s\n合计 %s", formatMoney(cny), formatMoneyWithUnit("HKD", hkd), formatMoneyWithUnit("USD", usd), formatMoney(total))
 }
 
 func formatTradeRealizedPnL(record stockcalculator.TradeSummary) string {

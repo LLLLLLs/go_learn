@@ -46,11 +46,11 @@
     {{end}}
 
     <section class="metrics">
-      <article><span>净入金</span><strong data-metric="capitalBreakdown">{{.CapitalBreakdown}}</strong></article>
-      <article><span>现金余额</span><strong data-metric="cashBreakdown">{{.CashBreakdown}}</strong></article>
+      <article><span>净入金</span><strong class="metric-lines" data-metric="capitalBreakdown">{{.CapitalBreakdown}}</strong></article>
+      <article><span>现金余额</span><strong class="metric-lines" data-metric="cashBreakdown">{{.CashBreakdown}}</strong></article>
       <article>
         <span>持仓市值 / 总资产</span>
-        <strong><span data-metric="marketValue">{{printf "¥%.2f" .Summary.MarketValue}}</span> / <span data-metric="totalAssets">{{printf "¥%.2f" .Summary.TotalAssets}}</span></strong>
+        <strong class="metric-plain"><span data-metric="marketValue">{{printf "¥%.2f" .Summary.MarketValue}}</span> / <span data-metric="totalAssets">{{printf "¥%.2f" .Summary.TotalAssets}}</span></strong>
       </article>
       <article class="metric-wide">
         <span>已实现盈亏 / 浮动盈亏 / 累计收益</span>
@@ -143,7 +143,21 @@
     </section>
 
     <section class="panel">
-      <h2>交易历史</h2>
+      <div class="panel-heading">
+        <h2>交易历史</h2>
+        <div class="pager-controls">
+          <label>每页
+            <select id="records-page-size">
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </label>
+          <span id="records-page-info">--</span>
+          <button type="button" id="records-prev">上一页</button>
+          <button type="button" id="records-next">下一页</button>
+        </div>
+      </div>
       <div class="table-wrap">
         <table id="records-table">
           <thead><tr><th data-sort="time">时间</th><th data-sort="text">类型</th><th data-sort="text">代码</th><th data-sort="text">市场</th><th data-sort="text">币种</th><th data-sort="number">股数</th><th data-sort="number">价格</th><th data-sort="number">汇率</th><th data-sort="number">金额(CNY)</th><th data-sort="number">盈亏(CNY)</th><th data-sort="number">手续费</th></tr></thead>
@@ -173,8 +187,15 @@
     const holdingsBody = document.querySelector("#holdings-body");
     const recordsTable = document.querySelector("#records-table");
     const recordsBody = document.querySelector("#records-body");
-    const initialRecordRows = recordsBody ? Array.from(recordsBody.querySelectorAll("tr")) : [];
+    const pageSizeSelect = document.querySelector("#records-page-size");
+    const pageInfo = document.querySelector("#records-page-info");
+    const prevPageButton = document.querySelector("#records-prev");
+    const nextPageButton = document.querySelector("#records-next");
+    const emptyRecordRow = recordsBody?.querySelector(".empty")?.closest("tr") || null;
+    const initialRecordRows = recordsBody ? Array.from(recordsBody.querySelectorAll("tr")).filter((row) => !row.querySelector(".empty")) : [];
+    let visibleRecordRows = [...initialRecordRows];
     const recordSort = { column: 0, direction: "desc" };
+    const recordPager = { page: 1, pageSize: 10 };
     let refreshInFlight = false;
 
     function inferCurrency(code) {
@@ -317,16 +338,11 @@
         header.dataset.direction = recordSort.direction !== "none" && recordSort.column === index ? recordSort.direction : "";
       });
     }
-    function applyRecordSort() {
-      if (!recordsBody || !recordsTable) return;
-      if (recordSort.direction === "none") {
-        recordsBody.replaceChildren(...initialRecordRows);
-        updateRecordSortHeaders();
-        return;
-      }
-      const header = recordsTable.querySelectorAll("thead th")[recordSort.column];
+    function sortedRecordRows() {
+      const rows = [...initialRecordRows];
+      if (recordSort.direction === "none") return rows;
+      const header = recordsTable?.querySelectorAll("thead th")[recordSort.column];
       const type = header?.dataset.sort || "text";
-      const rows = Array.from(recordsBody.querySelectorAll("tr")).filter((row) => !row.querySelector(".empty"));
       rows.sort((left, right) => {
         const result = compareRecordRows(left, right, recordSort.column, type);
         if (recordSort.column === 9) {
@@ -336,7 +352,32 @@
         }
         return recordSort.direction === "desc" ? -result : result;
       });
-      recordsBody.replaceChildren(...rows);
+      return rows;
+    }
+    function renderRecordPage() {
+      if (!recordsBody) return;
+      const total = visibleRecordRows.length;
+      const pageCount = Math.max(1, Math.ceil(total / recordPager.pageSize));
+      recordPager.page = Math.min(Math.max(1, recordPager.page), pageCount);
+      if (total === 0) {
+        if (emptyRecordRow) recordsBody.replaceChildren(emptyRecordRow);
+        if (pageInfo) pageInfo.textContent = "0 / 0";
+        if (prevPageButton) prevPageButton.disabled = true;
+        if (nextPageButton) nextPageButton.disabled = true;
+        return;
+      }
+      const start = (recordPager.page - 1) * recordPager.pageSize;
+      const pageRows = visibleRecordRows.slice(start, start + recordPager.pageSize);
+      recordsBody.replaceChildren(...pageRows);
+      if (pageInfo) pageInfo.textContent = `${recordPager.page} / ${pageCount}，共 ${total} 条`;
+      if (prevPageButton) prevPageButton.disabled = recordPager.page <= 1;
+      if (nextPageButton) nextPageButton.disabled = recordPager.page >= pageCount;
+    }
+    function applyRecordSort(resetPage = false) {
+      if (!recordsBody || !recordsTable) return;
+      visibleRecordRows = sortedRecordRows();
+      if (resetPage) recordPager.page = 1;
+      renderRecordPage();
       updateRecordSortHeaders();
     }
     recordsTable?.querySelectorAll("thead th[data-sort]").forEach((header, column) => {
@@ -350,13 +391,26 @@
         } else {
           recordSort.direction = "none";
         }
-        applyRecordSort();
+        applyRecordSort(true);
       });
       header.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         header.click();
       });
+    });
+    pageSizeSelect?.addEventListener("change", () => {
+      recordPager.pageSize = Number(pageSizeSelect.value) || 10;
+      recordPager.page = 1;
+      renderRecordPage();
+    });
+    prevPageButton?.addEventListener("click", () => {
+      recordPager.page -= 1;
+      renderRecordPage();
+    });
+    nextPageButton?.addEventListener("click", () => {
+      recordPager.page += 1;
+      renderRecordPage();
     });
     applyRecordSort();
     refreshForm?.addEventListener("submit", (event) => {

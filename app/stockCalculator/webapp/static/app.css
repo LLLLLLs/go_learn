@@ -239,7 +239,12 @@ main {
   padding: 12px;
 }
 
-.metrics article > span,
+.metrics article > span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 label {
   color: var(--muted);
   font-size: 12px;
@@ -252,12 +257,31 @@ label {
   color: var(--ink);
   font-size: 17px;
   line-height: 1.35;
-  word-break: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .metrics strong span {
   display: inline;
   margin-top: 0;
+}
+
+.metrics .metric-lines {
+  color: #475467;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.32;
+  white-space: pre-line;
+}
+
+.metrics .metric-plain {
+  color: #475467;
+  font-weight: 400;
+}
+
+.metrics .metric-plain span {
+  color: inherit;
+  font-weight: inherit;
 }
 
 .metrics small {
@@ -294,6 +318,52 @@ label {
 h2 {
   margin: 0 0 12px;
   font-size: 16px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-heading h2 {
+  margin-bottom: 0;
+}
+
+.pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pager-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pager-controls select {
+  width: 72px;
+}
+
+.pager-controls button {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.pager-controls button:disabled {
+  background: #c8d0da;
+  cursor: not-allowed;
+}
+
+.pager-controls span {
+  color: var(--muted);
+  min-width: 112px;
+  text-align: right;
 }
 
 .form-grid {
@@ -440,6 +510,15 @@ tr:last-child td {
   .inline-form {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pager-controls {
+    justify-content: flex-start;
   }
 
   .account-popover {
