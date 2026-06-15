@@ -91,6 +91,7 @@ const (
 	recordColumnPrice
 	recordColumnFXRate
 	recordColumnAmount
+	recordColumnRealizedPnL
 	recordColumnFee
 )
 
@@ -119,7 +120,7 @@ func NewUI(app fyne.App) (*UI, error) {
 		summaryLabels:       make(map[string]*widget.Label),
 		stopRefreshCh:       make(chan struct{}),
 		resetRefreshTimerCh: make(chan struct{}, 1),
-		recordSort:          recordSortState{Column: recordColumnTime, Direction: sortAscending},
+		recordSort:          recordSortState{Column: recordColumnTime, Direction: sortDescending},
 	}
 
 	ui.build()
@@ -451,7 +452,7 @@ func (ui *UI) setColumnWidths() {
 		ui.holdingsTable.SetColumnWidth(idx, width)
 	}
 
-	widths2 := []int{145, 70, 110, 70, 70, 60, 95, 70, 120, 120}
+	widths2 := []int{145, 70, 110, 70, 70, 60, 95, 70, 120, 120, 120}
 	for idx, width := range widths2 {
 		ui.recordsTable.SetColumnWidth(idx, width)
 	}
@@ -747,6 +748,7 @@ func buildRecordRows(records []TradeSummary, sortState recordSortState) [][]stri
 		"价格",
 		"汇率",
 		"金额(CNY)",
+		"盈亏(CNY)",
 		"手续费",
 	}
 	applyRecordSortHeader(headers, sortState)
@@ -763,6 +765,7 @@ func buildRecordRows(records []TradeSummary, sortState recordSortState) [][]stri
 			fmt.Sprintf("%.2f", record.Price),
 			fmt.Sprintf("%.4f", record.FXRate),
 			formatMoney(record.AmountBase),
+			formatTradeRealizedPnL(record),
 			formatMoneyWithUnit(record.Currency, record.Fee),
 		})
 	}
@@ -783,17 +786,21 @@ func applyRecordSortHeader(headers []string, sortState recordSortState) {
 }
 
 func (ui *UI) toggleRecordSort(column int) {
-	if column < recordColumnTime || column > recordColumnFee {
+	if column < recordColumnTime || column > recordColumnRealizedPnL {
 		return
 	}
-	if ui.recordSort.Column != column || ui.recordSort.Direction == sortNone {
-		ui.recordSort = recordSortState{Column: column, Direction: sortAscending}
-	} else if ui.recordSort.Direction == sortAscending {
-		ui.recordSort.Direction = sortDescending
-	} else {
-		ui.recordSort = recordSortState{Column: column, Direction: sortNone}
-	}
+	ui.recordSort = nextRecordSortState(ui.recordSort, column)
 	ui.refreshView()
+}
+
+func nextRecordSortState(current recordSortState, column int) recordSortState {
+	if current.Column != column || current.Direction == sortNone {
+		return recordSortState{Column: column, Direction: sortDescending}
+	}
+	if current.Direction == sortDescending {
+		return recordSortState{Column: column, Direction: sortAscending}
+	}
+	return recordSortState{Column: column, Direction: sortNone}
 }
 
 func (ui *UI) sortedRecords(records []TradeSummary) []TradeSummary {
@@ -832,6 +839,8 @@ func compareRecordByColumn(a, b TradeSummary, column int) bool {
 		return a.AmountBase < b.AmountBase
 	case recordColumnFee:
 		return a.Fee < b.Fee
+	case recordColumnRealizedPnL:
+		return a.RealizedPnL < b.RealizedPnL
 	default:
 		return a.Time.Before(b.Time)
 	}
@@ -1207,6 +1216,13 @@ func parseIntField(raw string, field string) (int, error) {
 
 func formatMoney(value float64) string {
 	return fmt.Sprintf("¥%.2f", value)
+}
+
+func formatTradeRealizedPnL(record TradeSummary) string {
+	if record.TypeLabel != "平仓" {
+		return ""
+	}
+	return formatMoney(record.RealizedPnL)
 }
 
 func formatRealizedPnLWithFees(realizedPnL float64, fees []FeeMarketTotal) string {

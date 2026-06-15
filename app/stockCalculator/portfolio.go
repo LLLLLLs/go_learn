@@ -43,6 +43,7 @@ type TradeRecord struct {
 	Fees           FeeBreakdown `json:"fees,omitempty"`
 	FeeTotal       float64      `json:"fee_total,omitempty"`
 	FeeTotalBase   float64      `json:"fee_total_base,omitempty"`
+	RealizedPnL    float64      `json:"realized_pnl"`
 }
 
 type FeeBreakdown struct {
@@ -181,6 +182,7 @@ type TradeSummary struct {
 	AmountBase  float64
 	Fee         float64
 	FeeBase     float64
+	RealizedPnL float64
 }
 
 func LoadPortfolio(raw string) (*Portfolio, error) {
@@ -231,7 +233,7 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 		}
 		p.quoteCache[normalized] = quote
 	}
-	p.records = append(p.records, withCalculatedFees(state.Records)...)
+	p.records = append(p.records, withCalculatedTradeDerivedFields(state.Records)...)
 
 	if err := p.rebuildLocked(); err != nil {
 		return nil, err
@@ -242,7 +244,7 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 
 func (p *Portfolio) MarshalState() ([]byte, error) {
 	p.mu.RLock()
-	records := withCalculatedFees(p.records)
+	records := withCalculatedTradeDerivedFields(p.records)
 	state := persistedState{
 		InitialCapitalCNY:  p.initialCapitalCNY,
 		InitialCapitalHKD:  p.initialCapitalHKD,
@@ -448,6 +450,10 @@ func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, pric
 		FXRate:         fxRateForCurrency(priceCurrency, p.hkdRate, p.usdRate),
 	}
 	record = withCalculatedFee(record)
+	if kind == TradeTypeSell {
+		pos := p.positions[security.Symbol]
+		record.RealizedPnL = calculateRecordRealizedPnL(record, pos.AvgCostBase)
+	}
 
 	p.records = append(p.records, record)
 	return p.rebuildLocked()
@@ -548,6 +554,7 @@ func (p *Portfolio) Summary() Summary {
 			AmountBase:  float64(record.Quantity) * record.Price * record.FXRate,
 			Fee:         record.FeeTotal,
 			FeeBase:     record.FeeTotalBase,
+			RealizedPnL: record.RealizedPnL,
 		})
 	}
 
@@ -705,7 +712,7 @@ func (p *Portfolio) applySellLocked(record TradeRecord) error {
 	}
 
 	p.adjustCashByCurrencyLocked(record.marketCurrency(), record.marketPrice()*float64(record.Quantity)-record.FeeTotal)
-	p.realizedPnL += (record.Price*record.FXRate - pos.AvgCostBase) * float64(record.Quantity)
+	p.realizedPnL += record.RealizedPnL
 
 	pos.Quantity -= record.Quantity
 	if pos.Quantity == 0 {
@@ -722,6 +729,67 @@ func withCalculatedFees(records []TradeRecord) []TradeRecord {
 		items[i] = withCalculatedFee(record)
 	}
 	return items
+}
+
+func withCalculatedTradeDerivedFields(records []TradeRecord) []TradeRecord {
+	items := withCalculatedFees(records)
+	recalculateRecordRealizedPnL(items)
+	return items
+}
+
+func recalculateRecordRealizedPnL(records []TradeRecord) {
+	order := make([]int, len(records))
+	for i := range records {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		left := records[order[i]]
+		right := records[order[j]]
+		if left.CreatedAt.Equal(right.CreatedAt) {
+			return left.ID < right.ID
+		}
+		return left.CreatedAt.Before(right.CreatedAt)
+	})
+
+	positions := make(map[string]*Position, len(records))
+	for _, idx := range order {
+		record := records[idx]
+		switch record.Type {
+		case TradeTypeBuy:
+			applyBuyToPositionMap(positions, record)
+			records[idx].RealizedPnL = 0
+		case TradeTypeSell:
+			pos := positions[record.Symbol]
+			if pos == nil || pos.Quantity < record.Quantity {
+				continue
+			}
+			records[idx].RealizedPnL = calculateRecordRealizedPnL(record, pos.AvgCostBase)
+			pos.Quantity -= record.Quantity
+			if pos.Quantity == 0 {
+				delete(positions, record.Symbol)
+			}
+		}
+	}
+}
+
+func applyBuyToPositionMap(positions map[string]*Position, record TradeRecord) {
+	pos := positions[record.Symbol]
+	if pos == nil {
+		pos = &Position{Symbol: record.Symbol}
+		positions[record.Symbol] = pos
+	}
+
+	newQty := pos.Quantity + record.Quantity
+	totalBaseCost := pos.AvgCostBase*float64(pos.Quantity) + record.Price*record.FXRate*float64(record.Quantity)
+	pos.Quantity = newQty
+	pos.AvgCostBase = totalBaseCost / float64(newQty)
+}
+
+func calculateRecordRealizedPnL(record TradeRecord, avgCostBase float64) float64 {
+	if record.Type != TradeTypeSell {
+		return 0
+	}
+	return (record.Price*record.FXRate - avgCostBase) * float64(record.Quantity)
 }
 
 func withCalculatedFee(record TradeRecord) TradeRecord {

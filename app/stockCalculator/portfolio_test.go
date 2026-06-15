@@ -174,8 +174,23 @@ func TestLoadPortfolioBackfillsFeesWithoutChangingPnL(t *testing.T) {
 	if len(summary.Records) != 2 || absFloat64(summary.Records[0].Fee-1.8) > 1e-9 || absFloat64(summary.Records[1].Fee-1.5) > 1e-9 {
 		t.Fatalf("Records = %+v", summary.Records)
 	}
+	if absFloat64(summary.Records[0].RealizedPnL-144) > 1e-9 || summary.Records[1].RealizedPnL != 0 {
+		t.Fatalf("Records realized pnl = %+v", summary.Records)
+	}
 	if len(summary.FeeMarketTotals) != 1 || summary.FeeMarketTotals[0].Market != "美股" || absFloat64(summary.FeeMarketTotals[0].Amount-3.3) > 1e-9 {
 		t.Fatalf("FeeMarketTotals = %+v", summary.FeeMarketTotals)
+	}
+
+	payload, err = p.MarshalState()
+	if err != nil {
+		t.Fatalf("MarshalState returned error: %v", err)
+	}
+	var migrated persistedState
+	if err := json.Unmarshal(payload, &migrated); err != nil {
+		t.Fatalf("Unmarshal migrated returned error: %v", err)
+	}
+	if absFloat64(migrated.Records[1].RealizedPnL-144) > 1e-9 {
+		t.Fatalf("persisted sell RealizedPnL = %v, want %v", migrated.Records[1].RealizedPnL, 144.0)
 	}
 }
 
