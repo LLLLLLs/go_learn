@@ -258,7 +258,7 @@ func (ui *UI) buildUserPanel() fyne.CanvasObject {
 }
 
 func (ui *UI) buildTradePanel() fyne.CanvasObject {
-	ui.tradeTypeSelect = widget.NewSelect([]string{"买入", "平仓"}, func(string) {
+	ui.tradeTypeSelect = widget.NewSelect([]string{"买入", "卖出"}, func(string) {
 		ui.updateTradeMode()
 	})
 	ui.tradeTypeSelect.SetSelected("买入")
@@ -273,7 +273,7 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 		if strings.TrimSpace(selected) == "" {
 			return
 		}
-		if ui.tradeTypeSelect.Selected == "平仓" {
+		if ui.tradeTypeSelect.Selected == "卖出" {
 			ui.applySellHoldingSelection(selected)
 			return
 		}
@@ -314,7 +314,7 @@ func (ui *UI) buildTradePanel() fyne.CanvasObject {
 		}
 
 		tradeType := TradeTypeBuy
-		if ui.tradeTypeSelect.Selected == "平仓" {
+		if ui.tradeTypeSelect.Selected == "卖出" {
 			tradeType = TradeTypeSell
 		}
 
@@ -491,7 +491,7 @@ func (ui *UI) refreshView() {
 	ui.recordsTable.Refresh()
 	ui.statusLabel.SetText(buildStatus(summary))
 	if ui.rateInfoLabel != nil {
-		ui.rateInfoLabel.SetText(fmt.Sprintf("HKD %.4f / USD %.4f", summary.HKDRate, summary.USDRate))
+		ui.rateInfoLabel.SetText(fmt.Sprintf("HKD %.4f / USD %.4f / KRW %.6f", summary.HKDRate, summary.USDRate, summary.KRWRate))
 	}
 }
 
@@ -619,7 +619,7 @@ func (ui *UI) refreshMarketData() {
 }
 
 func (ui *UI) refreshExchangeRatesIfStale() {
-	if _, ok := ui.portfolio.NextFXRefreshFromCache(ui.portfolio.RefreshInterval(), time.Now()); ok {
+	if _, ok := ui.portfolio.NextFXRefreshFromCache(fxRefreshInterval, time.Now()); ok {
 		log.Printf("[ui] refresh fx skipped: fresh local cache")
 		return
 	}
@@ -657,6 +657,16 @@ func (ui *UI) refreshExchangeRates() {
 			}
 		} else {
 			log.Printf("[ui] refresh fx USD failed err=%v", err)
+		}
+		if rate, err := ui.rateProvider.FetchKRWCNY(); err == nil {
+			if !ui.isClosing() {
+				if err := ui.portfolio.SetKRWExchangeRateWithTime(rate, time.Now()); err == nil {
+					_ = ui.portfolio.SaveToFile(ui.statePath)
+					updated = true
+				}
+			}
+		} else {
+			log.Printf("[ui] refresh fx KRW failed err=%v", err)
 		}
 	}
 	if updated {
@@ -848,7 +858,7 @@ func compareRecordByColumn(a, b TradeSummary, column int) bool {
 
 func buildStatus(summary Summary) string {
 	if len(summary.Holdings) == 0 {
-		return fmt.Sprintf("暂无持仓。港股按 %.4f、美股按 %.4f 折算为人民币。", summary.HKDRate, summary.USDRate)
+		return fmt.Sprintf("暂无持仓。港股按 %.4f、美股按 %.4f、韩元按 %.6f 折算为人民币。", summary.HKDRate, summary.USDRate, summary.KRWRate)
 	}
 	if summary.LastRefreshAt.IsZero() {
 		return "已存在持仓，等待首次行情刷新..."
@@ -856,8 +866,8 @@ func buildStatus(summary Summary) string {
 	if summary.LastRefreshErr != "" {
 		return fmt.Sprintf("最近刷新: %s，失败原因: %s", summary.LastRefreshAt.Format("2006-01-02 15:04:05"), summary.LastRefreshErr)
 	}
-	return fmt.Sprintf("最近刷新: %s，每 %s 自动更新一次，HKD/CNY %.4f，USD/CNY %.4f",
-		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), formatRefreshInterval(summary.RefreshInterval), summary.HKDRate, summary.USDRate)
+	return fmt.Sprintf("最近刷新: %s，每 %s 自动更新一次，HKD/CNY %.4f，USD/CNY %.4f，KRW/CNY %.6f",
+		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), formatRefreshInterval(summary.RefreshInterval), summary.HKDRate, summary.USDRate, summary.KRWRate)
 }
 
 func (ui *UI) switchUser(name string) error {
@@ -1008,7 +1018,7 @@ func (ui *UI) updateTradeMode() {
 		return
 	}
 
-	if ui.tradeTypeSelect.Selected == "平仓" {
+	if ui.tradeTypeSelect.Selected == "卖出" {
 		currentSelected := strings.TrimSpace(ui.recentCodeSelect.Selected)
 		currentCode := strings.TrimSpace(ui.codeEntry.Text)
 
@@ -1024,7 +1034,7 @@ func (ui *UI) updateTradeMode() {
 			ui.codeEntry.SetText("")
 			ui.quantityEntry.SetText("")
 			ui.configureQuantitySlider(0)
-			ui.quantityHintLabel.SetText("暂无可平仓持仓")
+			ui.quantityHintLabel.SetText("暂无可卖出持仓")
 			return
 		}
 
@@ -1082,7 +1092,7 @@ func (ui *UI) applySellHoldingSelection(selected string) {
 	ui.codeEntry.SetText(holding.DisplayCode)
 	ui.updatePriceCurrencyByCode(holding.DisplayCode)
 	ui.configureQuantitySlider(holding.Quantity)
-	ui.quantityHintLabel.SetText(fmt.Sprintf("最多可平仓 %d 股", holding.Quantity))
+	ui.quantityHintLabel.SetText(fmt.Sprintf("最多可卖出 %d 股", holding.Quantity))
 	if strings.TrimSpace(ui.quantityEntry.Text) == "" {
 		ui.setQuantityValue(holding.Quantity)
 		return
@@ -1113,7 +1123,7 @@ func (ui *UI) configureQuantitySlider(maxQuantity int) {
 }
 
 func (ui *UI) syncQuantityFromEntry(value string) {
-	if ui.suppressQuantitySync || ui.tradeTypeSelect == nil || ui.tradeTypeSelect.Selected != "平仓" || ui.quantitySlider == nil {
+	if ui.suppressQuantitySync || ui.tradeTypeSelect == nil || ui.tradeTypeSelect.Selected != "卖出" || ui.quantitySlider == nil {
 		return
 	}
 	trimmed := strings.TrimSpace(value)
@@ -1144,7 +1154,7 @@ func (ui *UI) syncQuantityFromEntry(value string) {
 }
 
 func (ui *UI) syncQuantityFromSlider(value float64) {
-	if ui.suppressQuantitySync || ui.tradeTypeSelect == nil || ui.tradeTypeSelect.Selected != "平仓" {
+	if ui.suppressQuantitySync || ui.tradeTypeSelect == nil || ui.tradeTypeSelect.Selected != "卖出" {
 		return
 	}
 	ui.setQuantityValue(int(value + 0.5))
@@ -1219,7 +1229,7 @@ func formatMoney(value float64) string {
 }
 
 func formatTradeRealizedPnL(record TradeSummary) string {
-	if record.TypeLabel != "平仓" {
+	if record.TypeLabel != "卖出" {
 		return ""
 	}
 	return formatMoney(record.RealizedPnL)

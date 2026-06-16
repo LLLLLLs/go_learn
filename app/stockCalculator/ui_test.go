@@ -97,7 +97,7 @@ func TestSortedRecordsByTimeAndFee(t *testing.T) {
 func TestBuildRecordRowsShowsRealizedPnLForSellOnly(t *testing.T) {
 	rows := buildRecordRows([]TradeSummary{
 		{TypeLabel: "买入", Time: time.Date(2026, 6, 12, 9, 0, 0, 0, time.Local), DisplayCode: "US:AAPL", Market: "美股", Currency: "USD", Quantity: 1, Price: 100, FXRate: 7.2, AmountBase: 720, Fee: 1.5},
-		{TypeLabel: "平仓", Time: time.Date(2026, 6, 12, 10, 0, 0, 0, time.Local), DisplayCode: "US:AAPL", Market: "美股", Currency: "USD", Quantity: 1, Price: 120, FXRate: 7.2, AmountBase: 864, Fee: 1.8, RealizedPnL: 144},
+		{TypeLabel: "卖出", Time: time.Date(2026, 6, 12, 10, 0, 0, 0, time.Local), DisplayCode: "US:AAPL", Market: "美股", Currency: "USD", Quantity: 1, Price: 120, FXRate: 7.2, AmountBase: 864, Fee: 1.8, RealizedPnL: 144},
 	}, recordSortState{})
 
 	if rows[1][recordColumnRealizedPnL] != "" {

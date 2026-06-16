@@ -3,12 +3,14 @@ package main
 import (
 	"crypto/rand"
 	"embed"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +21,9 @@ import (
 
 	stockcalculator "stockCalculator"
 )
+
+const exchangeRateRefreshInterval = time.Hour
+const maxAvatarUploadSize = 512 * 1024
 
 //go:embed templates/*.html static/*.css
 var webFS embed.FS
@@ -49,6 +54,7 @@ type pageData struct {
 	NextRefresh      string
 	NextRefreshUnix  int64
 	Holdings         []holdingView
+	Watchlist        []watchView
 	Records          []recordView
 	FeeTotals        string
 	RefreshSec       int
@@ -83,11 +89,29 @@ type holdingView struct {
 	UnrealizedPnLLocal string
 	UnrealizedPnL      string
 	ReturnPercent      string
+	Watched            bool
+	WatchAction        string
+	WatchButton        string
+}
+
+type watchView struct {
+	DisplayCode         string
+	Name                string
+	Market              string
+	Currency            string
+	OpenPrice           string
+	OpenPriceDisplay    string
+	CurrentPrice        string
+	CurrentPriceDisplay string
+	ChangePercent       string
+	ExtendedPrice       string
+	ExtendedChange      string
 }
 
 type recordView struct {
 	Time        string
 	TypeLabel   string
+	TypeClass   string
 	DisplayCode string
 	Market      string
 	Currency    string
@@ -111,6 +135,7 @@ type refreshResponse struct {
 	NextRefreshUnix int64         `json:"next_refresh_unix"`
 	Metrics         metricsView   `json:"metrics"`
 	Holdings        []holdingView `json:"holdings"`
+	Watchlist       []watchView   `json:"watchlist"`
 }
 
 type metricsView struct {
@@ -146,6 +171,8 @@ func main() {
 	mux.HandleFunc("POST /logout", srv.handleLogout)
 	mux.HandleFunc("POST /account", srv.handleAccount)
 	mux.HandleFunc("POST /trade", srv.handleTrade)
+	mux.HandleFunc("POST /watch/toggle", srv.handleWatchToggle)
+	mux.HandleFunc("POST /watch/remove", srv.handleWatchRemove)
 	mux.HandleFunc("POST /balance", srv.handleBalance)
 	mux.HandleFunc("POST /settings", srv.handleSettings)
 	mux.HandleFunc("POST /refresh", srv.handleRefresh)
@@ -167,7 +194,9 @@ func defaultListenAddr() string {
 
 func newServer() (*server, error) {
 	tmpl, err := template.New("layout.html").Funcs(template.FuncMap{
-		"pnlClass": pnlClass,
+		"pnlClass":      pnlClass,
+		"avatarInitial": avatarInitial,
+		"avatarURL":     avatarURL,
 	}).ParseFS(webFS, "templates/*.html")
 	if err != nil {
 		return nil, err
@@ -390,6 +419,15 @@ func (s *server) handleTrade(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			return errorNotice(err)
 		}
+		if r.FormValue("type") == string(stockcalculator.TradeTypeWatch) {
+			if err := s.portfolio.AddWatchWithQuote(r.FormValue("code"), s.quotes); err != nil {
+				return errorNotice(err)
+			}
+			if err := s.saveLocked(); err != nil {
+				return errorNotice(err)
+			}
+			return successNotice("已加入自选")
+		}
 		quantity, err := parseIntField(r.FormValue("quantity"), "股数")
 		if err != nil {
 			return errorNotice(err)
@@ -410,6 +448,46 @@ func (s *server) handleTrade(w http.ResponseWriter, r *http.Request) {
 		}
 		s.refreshQuotesLocked()
 		return successNotice("交易记录已保存")
+	})
+}
+
+func (s *server) handleWatchToggle(w http.ResponseWriter, r *http.Request) {
+	s.withMutation(w, r, func() notice {
+		if err := r.ParseForm(); err != nil {
+			return errorNotice(err)
+		}
+		code := r.FormValue("code")
+		if r.FormValue("action") == "remove" {
+			if err := s.portfolio.RemoveWatch(code); err != nil {
+				return errorNotice(err)
+			}
+			if err := s.saveLocked(); err != nil {
+				return errorNotice(err)
+			}
+			return successNotice("已移出自选")
+		}
+		if err := s.portfolio.AddWatchWithQuote(code, s.quotes); err != nil {
+			return errorNotice(err)
+		}
+		if err := s.saveLocked(); err != nil {
+			return errorNotice(err)
+		}
+		return successNotice("已加入自选")
+	})
+}
+
+func (s *server) handleWatchRemove(w http.ResponseWriter, r *http.Request) {
+	s.withMutation(w, r, func() notice {
+		if err := r.ParseForm(); err != nil {
+			return errorNotice(err)
+		}
+		if err := s.portfolio.RemoveWatch(r.FormValue("code")); err != nil {
+			return errorNotice(err)
+		}
+		if err := s.saveLocked(); err != nil {
+			return errorNotice(err)
+		}
+		return successNotice("已移出自选")
 	})
 }
 
@@ -516,16 +594,54 @@ func (s *server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) handleAccount(w http.ResponseWriter, r *http.Request) {
 	s.withMutation(w, r, func() notice {
-		if err := r.ParseForm(); err != nil {
+		if err := r.ParseMultipartForm(maxAvatarUploadSize); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 			return errorNotice(err)
 		}
+		resetAvatar := r.FormValue("reset_avatar") == "1"
+		var avatarData string
+		if !resetAvatar {
+			var err error
+			avatarData, err = readAvatarUpload(r)
+			if err != nil {
+				return errorNotice(err)
+			}
+		}
 		user := s.store.CurrentUser()
-		updated, err := s.store.UpdateUserProfile(user.ID, r.FormValue("name"), r.FormValue("current_password"), r.FormValue("new_password"), r.FormValue("new_password_confirm"))
+		updated, err := s.store.UpdateUserProfile(user.ID, r.FormValue("name"), avatarData, resetAvatar, r.FormValue("current_password"), r.FormValue("new_password"), r.FormValue("new_password_confirm"))
 		if err != nil {
 			return errorNotice(err)
 		}
 		return successNotice(fmt.Sprintf("已更新用户 %s", updated.Name))
 	})
+}
+
+func readAvatarUpload(r *http.Request) (string, error) {
+	file, header, err := r.FormFile("avatar")
+	if errors.Is(err, http.ErrMissingFile) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	if header.Size > maxAvatarUploadSize {
+		return "", fmt.Errorf("头像不能超过 %dKB", maxAvatarUploadSize/1024)
+	}
+	data, err := io.ReadAll(io.LimitReader(file, maxAvatarUploadSize+1))
+	if err != nil {
+		return "", err
+	}
+	if len(data) == 0 {
+		return "", nil
+	}
+	if len(data) > maxAvatarUploadSize {
+		return "", fmt.Errorf("头像不能超过 %dKB", maxAvatarUploadSize/1024)
+	}
+	mimeType := http.DetectContentType(data)
+	if !strings.HasPrefix(mimeType, "image/") {
+		return "", errors.New("头像文件必须是图片")
+	}
+	return "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 }
 
 func (s *server) withMutation(w http.ResponseWriter, r *http.Request, fn func() notice) {
@@ -549,6 +665,7 @@ func (s *server) pageDataLocked() pageData {
 		NextRefresh:      formatNextRefreshCountdown(s.nextRefreshAt, time.Now()),
 		NextRefreshUnix:  s.nextRefreshAt.Unix(),
 		Holdings:         buildHoldingViews(summary.Holdings),
+		Watchlist:        buildWatchViews(summary.Watchlist),
 		Records:          buildRecordViews(summary.Records),
 		FeeTotals:        formatFeeMarketTotals(summary.FeeMarketTotals),
 		RefreshSec:       int(summary.RefreshInterval / time.Second),
@@ -572,6 +689,7 @@ func (s *server) refreshResponseLocked() refreshResponse {
 		NextRefreshUnix: s.nextRefreshAt.Unix(),
 		Metrics:         buildMetricsView(summary),
 		Holdings:        buildHoldingViews(summary.Holdings),
+		Watchlist:       buildWatchViews(summary.Watchlist),
 	}
 }
 
@@ -629,7 +747,7 @@ func (s *server) refreshMarketDataLocked(force bool) {
 	if _, ok := s.portfolio.NextQuoteRefreshFromCache(s.portfolio.RefreshInterval(), now); !ok {
 		_ = s.refreshQuotesLocked()
 	}
-	if _, ok := s.portfolio.NextFXRefreshFromCache(s.portfolio.RefreshInterval(), now); !ok {
+	if _, ok := s.portfolio.NextFXRefreshFromCache(exchangeRateRefreshInterval, now); !ok {
 		_ = s.refreshRatesLocked()
 	}
 }
@@ -659,6 +777,13 @@ func (s *server) refreshRatesLocked() error {
 		}
 	} else {
 		errs = append(errs, fmt.Errorf("USD/CNY: %w", err))
+	}
+	if rate, err := s.rates.FetchKRWCNY(); err == nil {
+		if setErr := s.portfolio.SetKRWExchangeRateWithTime(rate, now); setErr != nil {
+			errs = append(errs, setErr)
+		}
+	} else {
+		errs = append(errs, fmt.Errorf("KRW/CNY: %w", err))
 	}
 	if saveErr := s.saveLocked(); saveErr != nil {
 		errs = append(errs, saveErr)
@@ -690,9 +815,50 @@ func buildHoldingViews(holdings []stockcalculator.HoldingSummary) []holdingView 
 			UnrealizedPnLLocal: formatMoneyWithUnit(holding.Currency, holding.UnrealizedPnLLocal),
 			UnrealizedPnL:      formatMoney(holding.UnrealizedPnL),
 			ReturnPercent:      formatPercent(calculateHoldingReturn(holding)),
+			Watched:            holding.Watched,
+			WatchAction:        watchAction(holding.Watched),
+			WatchButton:        watchButtonLabel(holding.Watched),
 		})
 	}
 	return items
+}
+
+func buildWatchViews(watchlist []stockcalculator.WatchSummary) []watchView {
+	items := make([]watchView, 0, len(watchlist))
+	for _, item := range watchlist {
+		name := strings.TrimSpace(item.Name)
+		if name == "" {
+			name = "-"
+		}
+		items = append(items, watchView{
+			DisplayCode:         item.DisplayCode,
+			Name:                name,
+			Market:              item.Market,
+			Currency:            item.Currency,
+			OpenPrice:           formatPriceOrDash(item.OpenPrice, item.OpenPriceDigits),
+			OpenPriceDisplay:    formatWatchPriceDisplay(item.OpenPrice, item.OpenPriceDigits, item.Currency, item.OpenPriceBase, item.BaseAvailable),
+			CurrentPrice:        formatPriceOrDash(item.CurrentPrice, item.CurrentPriceDigits),
+			CurrentPriceDisplay: formatWatchPriceDisplay(item.CurrentPrice, item.CurrentPriceDigits, item.Currency, item.CurrentPriceBase, item.BaseAvailable),
+			ChangePercent:       formatChangePercentOrDash(item.OpenPrice, item.CurrentPrice, item.ChangePercent),
+			ExtendedPrice:       formatSessionPriceOrDash(item.ExtendedPrice, item.ExtendedDigits, item.Currency, item.ExtendedChange),
+			ExtendedChange:      formatSessionChangeOrDash(item.ExtendedPrice, item.CurrentPrice, item.ExtendedChange),
+		})
+	}
+	return items
+}
+
+func watchAction(watched bool) string {
+	if watched {
+		return ""
+	}
+	return "add"
+}
+
+func watchButtonLabel(watched bool) string {
+	if watched {
+		return ""
+	}
+	return "+"
 }
 
 func buildMetricsView(summary stockcalculator.Summary) metricsView {
@@ -720,18 +886,30 @@ func buildRecordViews(records []stockcalculator.TradeSummary) []recordView {
 		items = append(items, recordView{
 			Time:        record.Time.Format("2006-01-02 15:04:05"),
 			TypeLabel:   record.TypeLabel,
+			TypeClass:   tradeTypeClass(record.TypeLabel),
 			DisplayCode: record.DisplayCode,
 			Market:      record.Market,
 			Currency:    record.Currency,
 			Quantity:    record.Quantity,
-			Price:       fmt.Sprintf("%.2f", record.Price),
-			FXRate:      fmt.Sprintf("%.4f", record.FXRate),
-			AmountBase:  formatMoney(record.AmountBase),
-			Fee:         formatMoneyWithUnit(record.Currency, record.Fee),
+			Price:       formatTrimmedDecimal(record.Price),
+			FXRate:      formatTradeFXRate(record.Currency, record.FXRate),
+			AmountBase:  formatTradeMoney("RMB", record.AmountBase),
+			Fee:         formatTradeMoney(record.Currency, record.Fee),
 			RealizedPnL: formatTradeRealizedPnL(record),
 		})
 	}
 	return items
+}
+
+func tradeTypeClass(label string) string {
+	switch strings.TrimSpace(label) {
+	case "买入":
+		return "trade-buy"
+	case "卖出":
+		return "trade-sell"
+	default:
+		return ""
+	}
 }
 
 func recentCodes(records []stockcalculator.TradeSummary) []string {
@@ -778,7 +956,7 @@ func calculateHoldingReturn(holding stockcalculator.HoldingSummary) float64 {
 
 func buildStatus(summary stockcalculator.Summary) string {
 	if len(summary.Holdings) == 0 {
-		return fmt.Sprintf("暂无持仓。港股按 %.4f、美股按 %.4f 折算为人民币。", summary.HKDRate, summary.USDRate)
+		return fmt.Sprintf("暂无持仓。港股按 %.4f、美股按 %.4f、韩元按 %.6f 折算为人民币。", summary.HKDRate, summary.USDRate, summary.KRWRate)
 	}
 	if summary.LastRefreshAt.IsZero() {
 		return "已存在持仓，等待首次行情刷新..."
@@ -786,8 +964,8 @@ func buildStatus(summary stockcalculator.Summary) string {
 	if summary.LastRefreshErr != "" {
 		return fmt.Sprintf("最近刷新: %s，失败原因: %s", summary.LastRefreshAt.Format("2006-01-02 15:04:05"), summary.LastRefreshErr)
 	}
-	return fmt.Sprintf("最近刷新: %s，每 %s 自动更新一次，HKD/CNY %.4f，USD/CNY %.4f",
-		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), formatRefreshInterval(summary.RefreshInterval), summary.HKDRate, summary.USDRate)
+	return fmt.Sprintf("最近刷新: %s，每 %s 自动更新一次，HKD/CNY %.4f，USD/CNY %.4f，KRW/CNY %.6f",
+		summary.LastRefreshAt.Format("2006-01-02 15:04:05"), formatRefreshInterval(summary.RefreshInterval), summary.HKDRate, summary.USDRate, summary.KRWRate)
 }
 
 func parseFloatField(raw string, field string) (float64, error) {
@@ -816,8 +994,37 @@ func formatMoneyWithUnit(currency string, value float64) string {
 		return fmt.Sprintf("HK$%.2f", value)
 	case "USD", "美元":
 		return fmt.Sprintf("$%.2f", value)
+	case "KRW", "韩元":
+		return fmt.Sprintf("₩%.0f", value)
 	default:
 		return fmt.Sprintf("¥%.2f", value)
+	}
+}
+
+func formatBaseMoneyOrDash(value float64, ok bool) string {
+	if !ok {
+		return "--"
+	}
+	return "¥" + strings.TrimRight(strings.TrimRight(strconv.FormatFloat(value, 'f', 3, 64), "0"), ".")
+}
+
+func formatWatchPriceDisplay(value float64, digits int, currency string, baseValue float64, baseAvailable bool) string {
+	if value <= 0 {
+		return "--"
+	}
+	local := fmt.Sprintf("%s %s", formatPrice(value, digits), strings.ToUpper(strings.TrimSpace(currency)))
+	if isBaseCurrency(currency) {
+		return local
+	}
+	return fmt.Sprintf("%s / %s", local, formatBaseMoneyOrDash(baseValue, baseAvailable))
+}
+
+func isBaseCurrency(currency string) bool {
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "CNY", "RMB", "人民币":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -826,10 +1033,39 @@ func formatCurrencyBreakdown(cny, hkd, usd, total float64) string {
 }
 
 func formatTradeRealizedPnL(record stockcalculator.TradeSummary) string {
-	if record.TypeLabel != "平仓" {
+	if record.TypeLabel != "卖出" {
 		return ""
 	}
-	return formatMoney(record.RealizedPnL)
+	return formatTradeMoney("RMB", record.RealizedPnL)
+}
+
+func formatTrimmedDecimal(value float64) string {
+	return formatTrimmedDecimalWithDigits(value, 3)
+}
+
+func formatTrimmedDecimalWithDigits(value float64, digits int) string {
+	return strings.TrimRight(strings.TrimRight(strconv.FormatFloat(value, 'f', digits, 64), "0"), ".")
+}
+
+func formatTradeFXRate(currency string, rate float64) string {
+	if isBaseCurrency(currency) || rate <= 0 {
+		return "--"
+	}
+	return formatTrimmedDecimalWithDigits(rate, 4)
+}
+
+func formatTradeMoney(currency string, value float64) string {
+	amount := formatTrimmedDecimal(value)
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "HKD", "港币":
+		return "HK$" + amount
+	case "USD", "美元":
+		return "$" + amount
+	case "KRW", "韩元":
+		return "₩" + amount
+	default:
+		return "¥" + amount
+	}
 }
 
 func formatFeeMarketTotals(fees []stockcalculator.FeeMarketTotal) string {
@@ -847,6 +1083,27 @@ func formatFeeMarketTotals(fees []stockcalculator.FeeMarketTotal) string {
 
 func formatPercent(value float64) string {
 	return fmt.Sprintf("%.2f%%", value*100)
+}
+
+func formatChangePercentOrDash(openPrice, currentPrice, value float64) string {
+	if openPrice <= 0 || currentPrice <= 0 {
+		return "--"
+	}
+	return formatPercent(value)
+}
+
+func formatSessionPriceOrDash(price float64, digits int, currency string, change float64) string {
+	if price <= 0 {
+		return "--"
+	}
+	return fmt.Sprintf("%s %s", formatPrice(price, digits), strings.ToUpper(strings.TrimSpace(currency)))
+}
+
+func formatSessionChangeOrDash(price float64, currentPrice float64, change float64) string {
+	if price <= 0 || currentPrice <= 0 {
+		return "--"
+	}
+	return formatPercent(change)
 }
 
 func formatRefreshInterval(interval time.Duration) string {
@@ -884,6 +1141,13 @@ func formatPrice(value float64, digits int) string {
 	return strconv.FormatFloat(value, 'f', digits, 64)
 }
 
+func formatPriceOrDash(value float64, digits int) string {
+	if value <= 0 {
+		return "--"
+	}
+	return formatPrice(value, digits)
+}
+
 func pnlClass(value string) string {
 	clean := strings.TrimSpace(value)
 	if clean == "" {
@@ -898,6 +1162,24 @@ func pnlClass(value string) string {
 		return ""
 	}
 	return "gain"
+}
+
+func avatarInitial(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "?"
+	}
+	for _, r := range name {
+		return strings.ToUpper(string(r))
+	}
+	return "?"
+}
+
+func avatarURL(value string) template.URL {
+	if strings.HasPrefix(value, "data:image/") {
+		return template.URL(value)
+	}
+	return ""
 }
 
 func successNotice(message string) notice {

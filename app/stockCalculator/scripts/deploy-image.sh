@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_NAME="${IMAGE_NAME:-stockcalculator-webapp:latest}"
+IMAGE_NAME="${IMAGE_NAME:-stock-web:latest}"
 TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
 SERVER_USER="${SERVER_USER:-root}"
 SERVER_PORT="${SERVER_PORT:-22}"
@@ -9,6 +9,7 @@ REMOTE_IMAGE_NAME="${REMOTE_IMAGE_NAME:-$IMAGE_NAME}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
 DEPLOY_AFTER_PUSH="${DEPLOY_AFTER_PUSH:-1}"
 REMOTE_COMPOSE_DIR="${REMOTE_COMPOSE_DIR:-/root/stock}"
+CLEANUP_REMOTE_IMAGES="${CLEANUP_REMOTE_IMAGES:-1}"
 
 if [[ -z "${SERVER_IP:-}" ]]; then
   echo "ERROR: SERVER_IP is required" >&2
@@ -58,6 +59,10 @@ fi
 if [[ "$DEPLOY_AFTER_PUSH" == "1" ]]; then
   echo "Restarting remote compose service in $REMOTE_COMPOSE_DIR..."
   "${SSH_BASE[@]}" "$REMOTE" "cd '$REMOTE_COMPOSE_DIR' && docker compose up -d --force-recreate"
+  if [[ "$CLEANUP_REMOTE_IMAGES" == "1" ]]; then
+    echo "Cleaning unused remote Docker images..."
+    "${SSH_BASE[@]}" "$REMOTE" "docker image prune -f"
+  fi
 fi
 
 echo "Done."

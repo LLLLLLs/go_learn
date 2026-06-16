@@ -18,10 +18,15 @@ import (
 )
 
 type Quote struct {
-	Symbol      string
-	Name        string
-	Price       float64
-	PriceDigits int
+	Symbol               string
+	Name                 string
+	Price                float64
+	PriceDigits          int
+	OpenPrice            float64
+	OpenPriceDigits      int
+	ExtendedPrice        float64
+	ExtendedPriceDigits  int
+	ExtendedPriceChecked bool
 }
 
 type QuoteProvider interface {
@@ -31,6 +36,7 @@ type QuoteProvider interface {
 type ExchangeRateProvider interface {
 	FetchHKDCNY() (float64, error)
 	FetchUSDCNY() (float64, error)
+	FetchKRWCNY() (float64, error)
 }
 
 type EastMoneyQuoteProvider struct {
@@ -81,6 +87,7 @@ func (p *EastMoneyQuoteProvider) Fetch(symbols []string) (result map[string]Quot
 			fetchFailures = append(fetchFailures, err.Error())
 		}
 		mergeValidQuotes(quotes, tencentQuotes)
+		mergeValidQuotes(quotes, p.fetchYahooSupplementalUSQuotes(validUSQuoteSymbols(normalizedInput, quotes)))
 		if hasValidQuotesForSymbols(normalizedInput, quotes) {
 			return quotes, nil
 		}
@@ -96,6 +103,7 @@ func (p *EastMoneyQuoteProvider) Fetch(symbols []string) (result map[string]Quot
 		}
 		mergeValidQuotes(quotes, eastMoneyQuotes)
 	}
+	mergeValidQuotes(quotes, p.fetchYahooSupplementalUSQuotes(validUSQuoteSymbols(normalizedInput, quotes)))
 
 	yahooSymbols := filterYahooFallbackSymbols(missingQuoteSymbols(normalizedInput, quotes))
 	if len(yahooSymbols) > 0 {
@@ -123,8 +131,31 @@ func mergeValidQuotes(target map[string]Quote, source map[string]Quote) {
 		if quote.Price <= 0 {
 			continue
 		}
-		target[symbol] = quote
+		target[symbol] = mergeQuote(target[symbol], quote)
 	}
+}
+
+func mergeQuote(base Quote, next Quote) Quote {
+	if next.Symbol != "" {
+		base.Symbol = next.Symbol
+	}
+	if next.Name != "" {
+		base.Name = next.Name
+	}
+	if next.Price > 0 {
+		base.Price = next.Price
+		base.PriceDigits = next.PriceDigits
+	}
+	if next.OpenPrice > 0 {
+		base.OpenPrice = next.OpenPrice
+		base.OpenPriceDigits = next.OpenPriceDigits
+	}
+	if next.ExtendedPriceChecked {
+		base.ExtendedPrice = next.ExtendedPrice
+		base.ExtendedPriceDigits = next.ExtendedPriceDigits
+		base.ExtendedPriceChecked = true
+	}
+	return base
 }
 
 func hasValidQuotesForSymbols(symbols []string, quotes map[string]Quote) bool {
@@ -137,6 +168,19 @@ func hasValidQuotesForSymbols(symbols []string, quotes map[string]Quote) bool {
 		}
 	}
 	return true
+}
+
+func validUSQuoteSymbols(symbols []string, quotes map[string]Quote) []string {
+	filtered := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		if !strings.HasPrefix(symbol, "us") {
+			continue
+		}
+		if quotes[symbol].Price > 0 {
+			filtered = append(filtered, symbol)
+		}
+	}
+	return filtered
 }
 
 func normalizeQuoteSymbols(symbols []string) []string {
@@ -177,11 +221,35 @@ func filterYahooFallbackSymbols(symbols []string) []string {
 		if strings.HasPrefix(symbol, "hk") {
 			continue
 		}
-		if strings.HasPrefix(symbol, "sh") || strings.HasPrefix(symbol, "sz") || strings.HasPrefix(symbol, "us") {
+		if strings.HasPrefix(symbol, "sh") || strings.HasPrefix(symbol, "sz") || strings.HasPrefix(symbol, "us") ||
+			strings.HasPrefix(symbol, "ks") || strings.HasPrefix(symbol, "kq") {
 			filtered = append(filtered, symbol)
 		}
 	}
 	return filtered
+}
+
+func filterUSSymbols(symbols []string) []string {
+	filtered := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		if strings.HasPrefix(symbol, "us") {
+			filtered = append(filtered, symbol)
+		}
+	}
+	return filtered
+}
+
+func (p *EastMoneyQuoteProvider) fetchYahooSupplementalUSQuotes(symbols []string) map[string]Quote {
+	usSymbols := filterUSSymbols(symbols)
+	if len(usSymbols) == 0 {
+		return nil
+	}
+	quotes, err := p.fetchYahooQuotes(usSymbols)
+	if err != nil {
+		log.Printf("[quotes] yahoo supplemental us failed err=%v", err)
+		return nil
+	}
+	return quotes
 }
 
 func (p *EastMoneyQuoteProvider) splitQuoteSymbols(symbols []string) ([]string, map[string]string, []string) {
@@ -360,7 +428,7 @@ func (p *EastMoneyQuoteProvider) fetchEastMoneyBodyOnce(baseURL string, secIDs [
 	}
 	q := req.URL.Query()
 	q.Set("fltt", "2")
-	q.Set("fields", "f12,f13,f14,f2")
+	q.Set("fields", "f12,f13,f14,f2,f18")
 	q.Set("secids", strings.Join(secIDs, ","))
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("User-Agent", "Mozilla/5.0")
@@ -464,6 +532,10 @@ func (p *EastMoneyQuoteProvider) fetchSingleYahooQuote(symbol string) (Quote, er
 	q := req.URL.Query()
 	q.Set("range", "1d")
 	q.Set("interval", "1m")
+	if strings.HasPrefix(normalizeQuoteSymbol(symbol), "us") {
+		q.Set("range", "5d")
+		q.Set("includePrePost", "true")
+	}
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	req.Header.Set("Referer", "https://finance.yahoo.com/")
@@ -490,9 +562,21 @@ func (p *EastMoneyQuoteProvider) fetchSingleYahooQuote(symbol string) (Quote, er
 		Chart struct {
 			Result []struct {
 				Meta struct {
-					Symbol             string  `json:"symbol"`
-					RegularMarketPrice float64 `json:"regularMarketPrice"`
+					Symbol                     string              `json:"symbol"`
+					LongName                   string              `json:"longName"`
+					ShortName                  string              `json:"shortName"`
+					RegularMarketPrice         float64             `json:"regularMarketPrice"`
+					RegularMarketPreviousClose float64             `json:"regularMarketPreviousClose"`
+					ChartPreviousClose         float64             `json:"chartPreviousClose"`
+					PreviousClose              float64             `json:"previousClose"`
+					CurrentTradingPeriod       yahooTradingPeriods `json:"currentTradingPeriod"`
 				} `json:"meta"`
+				Timestamp  []int64 `json:"timestamp"`
+				Indicators struct {
+					Quote []struct {
+						Close []float64 `json:"close"`
+					} `json:"quote"`
+				} `json:"indicators"`
 			} `json:"result"`
 			Error any `json:"error"`
 		} `json:"chart"`
@@ -507,7 +591,21 @@ func (p *EastMoneyQuoteProvider) fetchSingleYahooQuote(symbol string) (Quote, er
 	if price <= 0 {
 		return Quote{}, errors.New("Yahoo 未返回有效价格")
 	}
-	name := strings.TrimSpace(payload.Chart.Result[0].Meta.Symbol)
+	isUSSymbol := strings.HasPrefix(normalizeQuoteSymbol(symbol), "us")
+	extendedPrice := 0.0
+	if len(payload.Chart.Result[0].Indicators.Quote) > 0 {
+		closes := payload.Chart.Result[0].Indicators.Quote[0].Close
+		periods := payload.Chart.Result[0].Meta.CurrentTradingPeriod
+		extendedPrice = latestExtendedMarketPrice(payload.Chart.Result[0].Timestamp, closes, periods)
+	}
+	openPrice := payload.Chart.Result[0].Meta.RegularMarketPreviousClose
+	if openPrice <= 0 {
+		openPrice = payload.Chart.Result[0].Meta.PreviousClose
+	}
+	if openPrice <= 0 {
+		openPrice = payload.Chart.Result[0].Meta.ChartPreviousClose
+	}
+	name := yahooDisplayName(symbol, payload.Chart.Result[0].Meta.LongName, payload.Chart.Result[0].Meta.ShortName, payload.Chart.Result[0].Meta.Symbol)
 	if name == "" {
 		name = yahooSymbol
 	}
@@ -517,8 +615,154 @@ func (p *EastMoneyQuoteProvider) fetchSingleYahooQuote(symbol string) (Quote, er
 		Price:       price,
 		PriceDigits: decimalDigits(strconv.FormatFloat(price, 'f', -1, 64)),
 	}
+	if openPrice > 0 {
+		quote.OpenPrice = openPrice
+		quote.OpenPriceDigits = decimalDigits(strconv.FormatFloat(openPrice, 'f', -1, 64))
+	}
+	quote.ExtendedPriceChecked = isUSSymbol
+	if extendedPrice > 0 {
+		quote.ExtendedPrice = extendedPrice
+		quote.ExtendedPriceDigits = decimalDigits(strconv.FormatFloat(extendedPrice, 'f', -1, 64))
+	}
 	log.Printf("[quotes] yahoo item done symbol=%s elapsed=%s price=%v", symbol, time.Since(start), quote.Price)
 	return quote, nil
+}
+
+type yahooPeriod struct {
+	Start int64 `json:"start"`
+	End   int64 `json:"end"`
+}
+
+type yahooTradingPeriods struct {
+	Pre     yahooPeriod `json:"pre"`
+	Regular yahooPeriod `json:"regular"`
+	Post    yahooPeriod `json:"post"`
+}
+
+func priceInYahooPeriod(timestamps []int64, prices []float64, period yahooPeriod) float64 {
+	if period.Start <= 0 || period.End <= 0 || len(timestamps) == 0 || len(prices) == 0 {
+		return 0
+	}
+	limit := len(timestamps)
+	if len(prices) < limit {
+		limit = len(prices)
+	}
+	for i := limit - 1; i >= 0; i-- {
+		ts := timestamps[i]
+		if ts < period.Start || ts > period.End {
+			continue
+		}
+		if prices[i] > 0 {
+			return prices[i]
+		}
+	}
+	return 0
+}
+
+func latestExtendedMarketPrice(timestamps []int64, prices []float64, periods yahooTradingPeriods) float64 {
+	if periods.Regular.Start <= 0 || len(timestamps) == 0 || len(prices) == 0 {
+		return 0
+	}
+	limit := len(timestamps)
+	if len(prices) < limit {
+		limit = len(prices)
+	}
+	for i := limit - 1; i >= 0; i-- {
+		if prices[i] <= 0 {
+			continue
+		}
+		switch yahooSession(timestamps[i], periods) {
+		case "pre", "post":
+			return prices[i]
+		case "regular":
+			return 0
+		}
+	}
+	return 0
+}
+
+func yahooSession(timestamp int64, periods yahooTradingPeriods) string {
+	if inYahooPeriodOffset(timestamp, periods.Regular, periods.Regular.Start) {
+		return "regular"
+	}
+	if inYahooPeriodOffset(timestamp, periods.Pre, periods.Regular.Start) {
+		return "pre"
+	}
+	if inYahooPeriodOffset(timestamp, periods.Post, periods.Regular.Start) {
+		return "post"
+	}
+	return ""
+}
+
+func inYahooPeriodOffset(timestamp int64, period yahooPeriod, anchor int64) bool {
+	if period.Start <= 0 || period.End <= 0 || period.End < period.Start || anchor <= 0 {
+		return false
+	}
+	const daySeconds = 24 * 60 * 60
+	offset := positiveModulo(timestamp-anchor, daySeconds)
+	start := positiveModulo(period.Start-anchor, daySeconds)
+	end := positiveModulo(period.End-anchor, daySeconds)
+	if start <= end {
+		return offset >= start && offset <= end
+	}
+	return offset >= start || offset <= end
+}
+
+func positiveModulo(value int64, mod int64) int64 {
+	if mod <= 0 {
+		return 0
+	}
+	value %= mod
+	if value < 0 {
+		value += mod
+	}
+	return value
+}
+
+func yahooDisplayName(symbol string, names ...string) string {
+	if name := localizedQuoteName(symbol); name != "" {
+		return name
+	}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			return name
+		}
+	}
+	return ""
+}
+
+func localizedQuoteName(symbol string) string {
+	switch normalizeQuoteSymbol(symbol) {
+	case "usaaoi":
+		return "应用光电"
+	case "usmrvl":
+		return "迈威尔科技"
+	case "usmu":
+		return "美光科技"
+	case "usnok":
+		return "诺基亚"
+	case "usspcx":
+		return "SpaceX"
+	case "ks000660":
+		return "SK海力士"
+	case "ks005930":
+		return "三星电子"
+	case "ks373220":
+		return "LG新能源"
+	case "ks207940":
+		return "三星生物制剂"
+	case "ks005380":
+		return "现代汽车"
+	case "ks000270":
+		return "起亚"
+	case "kq035720":
+		return "Kakao"
+	case "ks035420":
+		return "NAVER"
+	default:
+		return ""
+	}
 }
 
 func toYahooSymbol(symbol string) (string, error) {
@@ -550,6 +794,16 @@ func toYahooSymbol(symbol string) (string, error) {
 			return "", errors.New("A 股代码无效")
 		}
 		return code + ".SZ", nil
+	case "ks":
+		if len(code) != 6 || !isDigits(code) {
+			return "", errors.New("韩股代码无效")
+		}
+		return code + ".KS", nil
+	case "kq":
+		if len(code) != 6 || !isDigits(code) {
+			return "", errors.New("韩股代码无效")
+		}
+		return code + ".KQ", nil
 	default:
 		return "", errors.New("Yahoo 暂不支持该行情代码")
 	}
@@ -570,6 +824,7 @@ func parseEastMoneyQuotes(body []byte, symbolBySecID map[string]string) (map[str
 		Data *struct {
 			Diff []struct {
 				Price  json.RawMessage `json:"f2"`
+				Open   json.RawMessage `json:"f18"`
 				Code   string          `json:"f12"`
 				Market int             `json:"f13"`
 				Name   string          `json:"f14"`
@@ -595,11 +850,18 @@ func parseEastMoneyQuotes(body []byte, symbolBySecID map[string]string) (map[str
 		if err != nil {
 			price = 0
 		}
+		openText := strings.Trim(string(item.Open), `"`)
+		openPrice, err := strconv.ParseFloat(openText, 64)
+		if err != nil {
+			openPrice = 0
+		}
 		quotes[symbol] = Quote{
-			Symbol:      symbol,
-			Name:        strings.TrimSpace(item.Name),
-			Price:       price,
-			PriceDigits: decimalDigits(priceText),
+			Symbol:          symbol,
+			Name:            strings.TrimSpace(item.Name),
+			Price:           price,
+			PriceDigits:     decimalDigits(priceText),
+			OpenPrice:       openPrice,
+			OpenPriceDigits: decimalDigits(openText),
 		}
 	}
 	return quotes, nil
@@ -639,6 +901,14 @@ func parseTencentLine(line string) (string, Quote, bool) {
 	if err != nil || price <= 0 {
 		return "", Quote{}, false
 	}
+	openPrice := 0.0
+	openDigits := 0
+	if len(fields) > 4 {
+		if value, err := strconv.ParseFloat(fields[4], 64); err == nil && value > 0 {
+			openPrice = value
+			openDigits = decimalDigits(fields[4])
+		}
+	}
 
 	name := fields[1]
 	if !utf8.ValidString(name) {
@@ -646,10 +916,12 @@ func parseTencentLine(line string) (string, Quote, bool) {
 	}
 
 	return symbol, Quote{
-		Symbol:      symbol,
-		Name:        name,
-		Price:       price,
-		PriceDigits: decimalDigits(priceText),
+		Symbol:          symbol,
+		Name:            name,
+		Price:           price,
+		PriceDigits:     decimalDigits(priceText),
+		OpenPrice:       openPrice,
+		OpenPriceDigits: openDigits,
 	}, true
 }
 
@@ -675,6 +947,10 @@ func (p *FrankfurterExchangeRateProvider) FetchHKDCNY() (float64, error) {
 
 func (p *FrankfurterExchangeRateProvider) FetchUSDCNY() (float64, error) {
 	return p.fetchCNYRate("USD", "未获取到有效 USD/CNY 汇率")
+}
+
+func (p *FrankfurterExchangeRateProvider) FetchKRWCNY() (float64, error) {
+	return p.fetchCNYRate("KRW", "未获取到有效 KRW/CNY 汇率")
 }
 
 func (p *FrankfurterExchangeRateProvider) fetchCNYRate(base string, emptyMessage string) (float64, error) {

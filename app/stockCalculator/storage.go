@@ -34,6 +34,7 @@ type UserProfile struct {
 	ID           string `json:"id"`
 	Account      string `json:"account,omitempty"`
 	Name         string `json:"name"`
+	AvatarData   string `json:"avatar_data,omitempty"`
 	PasswordSalt string `json:"password_salt,omitempty"`
 	PasswordHash string `json:"password_hash,omitempty"`
 }
@@ -373,7 +374,7 @@ func (s *UserStore) Authenticate(account, password string) (UserProfile, error) 
 	return *user, nil
 }
 
-func (s *UserStore) UpdateUserProfile(id, name, currentPassword, newPassword, newPasswordConfirm string) (UserProfile, error) {
+func (s *UserStore) UpdateUserProfile(id, name, avatarData string, resetAvatar bool, currentPassword, newPassword, newPasswordConfirm string) (UserProfile, error) {
 	name, err := s.validateUniqueUserName(id, name)
 	if err != nil {
 		return UserProfile{}, err
@@ -384,6 +385,11 @@ func (s *UserStore) UpdateUserProfile(id, name, currentPassword, newPassword, ne
 		return UserProfile{}, errors.New("用户不存在")
 	}
 	user.Name = name
+	if resetAvatar {
+		user.AvatarData = ""
+	} else if avatarData != "" {
+		user.AvatarData = avatarData
+	}
 
 	changingPassword := strings.TrimSpace(currentPassword) != "" || strings.TrimSpace(newPassword) != "" || strings.TrimSpace(newPasswordConfirm) != ""
 	if changingPassword {

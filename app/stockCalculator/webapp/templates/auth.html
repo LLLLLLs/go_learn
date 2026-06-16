@@ -3,14 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{if eq .Mode "register"}}注册{{else}}登录{{end}} - 股票收益追踪计算器</title>
+  <title>{{if eq .Mode "register"}}注册{{else}}登录{{end}} - 韭菜培养基地</title>
+  <script>
+    (() => {
+      try {
+        const theme = localStorage.getItem("stockcalc-theme");
+        if (theme === "dark") document.documentElement.dataset.theme = "dark";
+      } catch (error) {}
+    })();
+  </script>
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="auth-page">
   <main class="auth-shell">
     <section class="auth-panel">
-      <h1>股票收益追踪计算器</h1>
-      <h2>{{if eq .Mode "register"}}注册账号{{else}}账号登录{{end}}</h2>
+      <div class="auth-panel-header">
+        <div>
+          <h1>韭菜培养基地</h1>
+          <h2>{{if eq .Mode "register"}}注册账号{{else}}账号登录{{end}}</h2>
+        </div>
+        <button type="button" class="ghost-button theme-toggle" data-theme-toggle>Light</button>
+      </div>
       {{if .Notice.Message}}
         <div class="notice {{.Notice.Type}}">{{.Notice.Message}}</div>
       {{end}}
@@ -32,5 +45,26 @@
       </p>
     </section>
   </main>
+  <script>
+    const themeToggles = document.querySelectorAll("[data-theme-toggle]");
+    function currentTheme() {
+      return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    }
+    function applyTheme(theme) {
+      const nextTheme = theme === "dark" ? "dark" : "light";
+      document.documentElement.dataset.theme = nextTheme === "dark" ? "dark" : "";
+      themeToggles.forEach((button) => {
+        button.textContent = nextTheme === "dark" ? "Dark" : "Light";
+        button.setAttribute("aria-label", nextTheme === "dark" ? "切换到日间模式" : "切换到夜间模式");
+      });
+      try {
+        localStorage.setItem("stockcalc-theme", nextTheme);
+      } catch (error) {}
+    }
+    applyTheme(currentTheme());
+    themeToggles.forEach((button) => {
+      button.addEventListener("click", () => applyTheme(currentTheme() === "dark" ? "light" : "dark"));
+    });
+  </script>
 </body>
 </html>

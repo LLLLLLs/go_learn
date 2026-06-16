@@ -16,14 +16,16 @@ const (
 	defaultHKDRate     = 0.92
 	defaultUSDRate     = 7.20
 	defaultRefreshSec  = 60
+	fxRefreshInterval  = time.Hour
 	moneyEpsilon       = 1e-6
 )
 
 type TradeType string
 
 const (
-	TradeTypeBuy  TradeType = "buy"
-	TradeTypeSell TradeType = "sell"
+	TradeTypeBuy   TradeType = "buy"
+	TradeTypeSell  TradeType = "sell"
+	TradeTypeWatch TradeType = "watch"
 )
 
 type TradeRecord struct {
@@ -62,17 +64,27 @@ type persistedState struct {
 	InitialCapitalUSD  float64       `json:"initial_capital_usd,omitempty"`
 	HKDRate            float64       `json:"hkd_rate"`
 	USDRate            float64       `json:"usd_rate,omitempty"`
+	KRWRate            float64       `json:"krw_rate,omitempty"`
 	RefreshIntervalSec int           `json:"refresh_interval_sec,omitempty"`
 	QuoteCache         quoteCache    `json:"quote_cache,omitempty"`
 	FXCache            fxCache       `json:"fx_cache,omitempty"`
+	Watchlist          []Security    `json:"watchlist,omitempty"`
 	Records            []TradeRecord `json:"records"`
 }
 
 type persistedQuote struct {
-	Name        string    `json:"name,omitempty"`
-	Price       float64   `json:"price,omitempty"`
-	PriceDigits int       `json:"price_digits,omitempty"`
-	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+	Name                string    `json:"name,omitempty"`
+	Price               float64   `json:"price,omitempty"`
+	PriceDigits         int       `json:"price_digits,omitempty"`
+	OpenPrice           float64   `json:"open_price,omitempty"`
+	OpenPriceDigits     int       `json:"open_price_digits,omitempty"`
+	ExtendedPrice       float64   `json:"extended_price,omitempty"`
+	ExtendedPriceDigits int       `json:"extended_price_digits,omitempty"`
+	LegacyPrePrice      float64   `json:"pre_market_price,omitempty"`
+	LegacyPreDigits     int       `json:"pre_market_price_digits,omitempty"`
+	LegacyPostPrice     float64   `json:"post_market_price,omitempty"`
+	LegacyPostDigits    int       `json:"post_market_price_digits,omitempty"`
+	UpdatedAt           time.Time `json:"updated_at,omitempty"`
 }
 
 type quoteCache map[string]persistedQuote
@@ -85,6 +97,7 @@ type persistedFXRate struct {
 type fxCache struct {
 	HKDCNY persistedFXRate `json:"hkd_cny,omitempty"`
 	USDCNY persistedFXRate `json:"usd_cny,omitempty"`
+	KRWCNY persistedFXRate `json:"krw_cny,omitempty"`
 }
 
 type Position struct {
@@ -109,10 +122,12 @@ type Portfolio struct {
 	initialCapitalUSD float64
 	hkdRate           float64
 	usdRate           float64
+	krwRate           float64
 	refreshInterval   time.Duration
 	records           []TradeRecord
 	quoteCache        quoteCache
 	fxCache           fxCache
+	watchlist         map[string]Security
 
 	positions      map[string]*Position
 	cashCNY        float64
@@ -130,6 +145,7 @@ type Summary struct {
 	InitialCapitalUSD float64
 	HKDRate           float64
 	USDRate           float64
+	KRWRate           float64
 	RefreshInterval   time.Duration
 	Cash              float64
 	CashCNY           float64
@@ -146,6 +162,7 @@ type Summary struct {
 	LastRefreshAt     time.Time
 	LastRefreshErr    string
 	Holdings          []HoldingSummary
+	Watchlist         []WatchSummary
 	Records           []TradeSummary
 }
 
@@ -168,6 +185,25 @@ type HoldingSummary struct {
 	MarketValueLocal   float64
 	UnrealizedPnL      float64
 	UnrealizedPnLLocal float64
+	Watched            bool
+}
+
+type WatchSummary struct {
+	DisplayCode        string
+	Name               string
+	Market             string
+	Currency           string
+	OpenPrice          float64
+	OpenPriceDigits    int
+	CurrentPrice       float64
+	CurrentPriceDigits int
+	OpenPriceBase      float64
+	CurrentPriceBase   float64
+	BaseAvailable      bool
+	ChangePercent      float64
+	ExtendedPrice      float64
+	ExtendedDigits     int
+	ExtendedChange     float64
 }
 
 type TradeSummary struct {
@@ -191,6 +227,7 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 		usdRate:         defaultUSDRate,
 		refreshInterval: defaultRefreshSec * time.Second,
 		quoteCache:      make(quoteCache),
+		watchlist:       make(map[string]Security),
 		positions:       make(map[string]*Position),
 	}
 
@@ -215,6 +252,9 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 	if state.USDRate > 0 {
 		p.usdRate = state.USDRate
 	}
+	if state.KRWRate > 0 {
+		p.krwRate = state.KRWRate
+	}
 	if state.FXCache.HKDCNY.Rate > 0 {
 		p.hkdRate = state.FXCache.HKDCNY.Rate
 		p.fxCache.HKDCNY = state.FXCache.HKDCNY
@@ -222,6 +262,10 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 	if state.FXCache.USDCNY.Rate > 0 {
 		p.usdRate = state.FXCache.USDCNY.Rate
 		p.fxCache.USDCNY = state.FXCache.USDCNY
+	}
+	if state.FXCache.KRWCNY.Rate > 0 {
+		p.krwRate = state.FXCache.KRWCNY.Rate
+		p.fxCache.KRWCNY = state.FXCache.KRWCNY
 	}
 	if state.RefreshIntervalSec > 0 {
 		p.refreshInterval = time.Duration(state.RefreshIntervalSec) * time.Second
@@ -231,7 +275,15 @@ func LoadPortfolio(raw string) (*Portfolio, error) {
 		if normalized == "" || quote.Price <= 0 {
 			continue
 		}
+		quote = normalizePersistedQuote(quote)
 		p.quoteCache[normalized] = quote
+	}
+	for _, item := range state.Watchlist {
+		security, err := normalizePersistedSecurity(item)
+		if err != nil {
+			continue
+		}
+		p.watchlist[security.Symbol] = security
 	}
 	p.records = append(p.records, withCalculatedTradeDerivedFields(state.Records)...)
 
@@ -251,9 +303,11 @@ func (p *Portfolio) MarshalState() ([]byte, error) {
 		InitialCapitalUSD:  p.initialCapitalUSD,
 		HKDRate:            p.hkdRate,
 		USDRate:            p.usdRate,
+		KRWRate:            p.krwRate,
 		RefreshIntervalSec: int(p.refreshInterval / time.Second),
 		QuoteCache:         p.quoteCacheStateLocked(),
 		FXCache:            p.fxCache,
+		Watchlist:          p.watchlistStateLocked(),
 		Records:            records,
 	}
 	p.mu.RUnlock()
@@ -326,6 +380,18 @@ func (p *Portfolio) SetUSDExchangeRateWithTime(usdRate float64, updatedAt time.T
 	return nil
 }
 
+func (p *Portfolio) SetKRWExchangeRateWithTime(krwRate float64, updatedAt time.Time) error {
+	if krwRate <= 0 {
+		return errors.New("韩元汇率必须大于 0")
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.krwRate = krwRate
+	p.fxCache.KRWCNY = persistedFXRate{Rate: krwRate, UpdatedAt: updatedAt}
+	return nil
+}
+
 func (p *Portfolio) RefreshInterval() time.Duration {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -356,11 +422,12 @@ func (p *Portfolio) NextQuoteRefreshFromCache(maxAge time.Duration, now time.Tim
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if len(p.positions) == 0 {
+	symbols := p.quoteSymbolsLocked()
+	if len(symbols) == 0 {
 		return time.Time{}, false
 	}
 	var next time.Time
-	for symbol := range p.positions {
+	for _, symbol := range symbols {
 		quote := p.quoteCache[symbol]
 		if quote.Price <= 0 || quote.UpdatedAt.IsZero() {
 			return time.Time{}, false
@@ -383,7 +450,7 @@ func (p *Portfolio) NextFXRefreshFromCache(maxAge time.Duration, now time.Time) 
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	rates := []persistedFXRate{p.fxCache.HKDCNY, p.fxCache.USDCNY}
+	rates := []persistedFXRate{p.fxCache.HKDCNY, p.fxCache.USDCNY, p.fxCache.KRWCNY}
 	var next time.Time
 	for _, item := range rates {
 		if item.Rate <= 0 || item.UpdatedAt.IsZero() {
@@ -430,7 +497,7 @@ func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, pric
 	if kind == TradeTypeSell {
 		pos := p.positions[security.Symbol]
 		if pos == nil || pos.Quantity < quantity {
-			return errors.New("平仓股数超过当前持仓")
+			return errors.New("卖出股数超过当前持仓")
 		}
 	}
 
@@ -459,12 +526,69 @@ func (p *Portfolio) AddRecord(kind TradeType, rawCode string, quantity int, pric
 	return p.rebuildLocked()
 }
 
+func (p *Portfolio) AddWatch(rawCode string) error {
+	security, err := normalizeSecurity(rawCode)
+	if err != nil {
+		return err
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.watchlist == nil {
+		p.watchlist = make(map[string]Security)
+	}
+	p.watchlist[security.Symbol] = security
+	return nil
+}
+
+func (p *Portfolio) AddWatchWithQuote(rawCode string, provider QuoteProvider) error {
+	security, err := normalizeSecurity(rawCode)
+	if err != nil {
+		return err
+	}
+	if provider == nil {
+		return p.addWatchLocked(security, Quote{}, time.Now())
+	}
+
+	quotes, err := provider.Fetch([]string{security.Symbol})
+	if err != nil {
+		return fmt.Errorf("未查询到 %s 的有效行情，请检查股票代码: %w", security.DisplayCode, err)
+	}
+	quote := quotes[security.Symbol]
+	if quote.Price <= 0 {
+		return fmt.Errorf("未查询到 %s 的有效行情，请检查股票代码", security.DisplayCode)
+	}
+	return p.addWatchLocked(security, quote, time.Now())
+}
+
+func (p *Portfolio) addWatchLocked(security Security, quote Quote, updatedAt time.Time) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.watchlist == nil {
+		p.watchlist = make(map[string]Security)
+	}
+	p.watchlist[security.Symbol] = security
+	if quote.Price > 0 {
+		p.updateQuoteCacheLocked(security.Symbol, quote, updatedAt)
+	}
+	return nil
+}
+
+func (p *Portfolio) RemoveWatch(rawCode string) error {
+	security, err := normalizeSecurity(rawCode)
+	if err != nil {
+		return err
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.watchlist, security.Symbol)
+	return nil
+}
+
 func (p *Portfolio) RefreshQuotes(provider QuoteProvider) error {
 	p.mu.RLock()
-	symbols := make([]string, 0, len(p.positions))
-	for symbol := range p.positions {
-		symbols = append(symbols, symbol)
-	}
+	symbols := p.quoteSymbolsLocked()
 	p.mu.RUnlock()
 
 	now := time.Now()
@@ -490,14 +614,11 @@ func (p *Portfolio) RefreshQuotes(provider QuoteProvider) error {
 	p.lastRefreshErr = ""
 	for symbol, quote := range quotes {
 		pos := p.positions[symbol]
-		if pos == nil {
-			continue
-		}
-		if quote.Price > 0 {
+		if pos != nil && quote.Price > 0 {
 			pos.LastPrice = quote.Price
 			pos.PriceDigits = quote.PriceDigits
 		}
-		if quote.Name != "" {
+		if pos != nil && quote.Name != "" {
 			pos.Name = quote.Name
 		}
 		p.updateQuoteCacheLocked(symbol, quote, now)
@@ -521,9 +642,13 @@ func (p *Portfolio) Summary() Summary {
 		rowPnL := currentBase - avgCostBase
 		rowPnLLocal := currentLocal - avgCostLocal
 
+		name := localizedQuoteName(pos.Symbol)
+		if name == "" {
+			name = pos.Name
+		}
 		holdings = append(holdings, HoldingSummary{
 			DisplayCode:        pos.DisplayCode,
-			Name:               pos.Name,
+			Name:               name,
 			Market:             pos.Market,
 			Currency:           pos.Currency,
 			Quantity:           pos.Quantity,
@@ -534,10 +659,13 @@ func (p *Portfolio) Summary() Summary {
 			MarketValueLocal:   currentLocal,
 			UnrealizedPnL:      rowPnL,
 			UnrealizedPnLLocal: rowPnLLocal,
+			Watched:            p.watchlist[pos.Symbol].Symbol != "",
 		})
 		marketValue += currentBase
 		unrealized += rowPnL
 	}
+
+	watchlist := p.watchSummariesLocked()
 
 	records := make([]TradeSummary, 0, len(p.records))
 	for i := len(p.records) - 1; i >= 0; i-- {
@@ -569,6 +697,7 @@ func (p *Portfolio) Summary() Summary {
 		InitialCapitalUSD: p.initialCapitalUSD,
 		HKDRate:           p.hkdRate,
 		USDRate:           p.usdRate,
+		KRWRate:           p.krwRate,
 		RefreshInterval:   p.refreshInterval,
 		Cash:              cash,
 		CashCNY:           p.cashCNY,
@@ -585,6 +714,7 @@ func (p *Portfolio) Summary() Summary {
 		LastRefreshAt:     p.lastRefreshAt,
 		LastRefreshErr:    p.lastRefreshErr,
 		Holdings:          holdings,
+		Watchlist:         watchlist,
 		Records:           records,
 	}
 }
@@ -628,11 +758,12 @@ func (p *Portfolio) applyQuoteCacheLocked() {
 }
 
 func (p *Portfolio) applyCachedLastRefreshLocked() {
-	if len(p.positions) == 0 {
+	symbols := p.quoteSymbolsLocked()
+	if len(symbols) == 0 {
 		return
 	}
 	var lastRefreshAt time.Time
-	for symbol := range p.positions {
+	for _, symbol := range symbols {
 		quote := p.quoteCache[symbol]
 		if quote.Price <= 0 || quote.UpdatedAt.IsZero() {
 			return
@@ -656,20 +787,48 @@ func (p *Portfolio) updateQuoteCacheLocked(symbol string, quote Quote, updatedAt
 		cached.PriceDigits = quote.PriceDigits
 		cached.UpdatedAt = updatedAt
 	}
+	if quote.OpenPrice > 0 {
+		cached.OpenPrice = quote.OpenPrice
+		cached.OpenPriceDigits = quote.PriceDigits
+		if quote.OpenPriceDigits > 0 {
+			cached.OpenPriceDigits = quote.OpenPriceDigits
+		}
+	}
 	if quote.Name != "" {
 		cached.Name = quote.Name
+	}
+	if quote.ExtendedPriceChecked {
+		cached.ExtendedPrice = quote.ExtendedPrice
+		cached.ExtendedPriceDigits = quote.ExtendedPriceDigits
 	}
 	if cached.Price > 0 {
 		p.quoteCache[symbol] = cached
 	}
 }
 
+func normalizePersistedQuote(quote persistedQuote) persistedQuote {
+	if quote.ExtendedPrice > 0 {
+		return quote
+	}
+	if quote.LegacyPostPrice > 0 {
+		quote.ExtendedPrice = quote.LegacyPostPrice
+		quote.ExtendedPriceDigits = quote.LegacyPostDigits
+		return quote
+	}
+	if quote.LegacyPrePrice > 0 {
+		quote.ExtendedPrice = quote.LegacyPrePrice
+		quote.ExtendedPriceDigits = quote.LegacyPreDigits
+	}
+	return quote
+}
+
 func (p *Portfolio) quoteCacheStateLocked() quoteCache {
-	if len(p.positions) == 0 || len(p.quoteCache) == 0 {
+	symbols := p.quoteSymbolsLocked()
+	if len(symbols) == 0 || len(p.quoteCache) == 0 {
 		return nil
 	}
-	cache := make(quoteCache, len(p.positions))
-	for symbol := range p.positions {
+	cache := make(quoteCache, len(symbols))
+	for _, symbol := range symbols {
 		quote := p.quoteCache[symbol]
 		if quote.Price <= 0 {
 			continue
@@ -680,6 +839,94 @@ func (p *Portfolio) quoteCacheStateLocked() quoteCache {
 		return nil
 	}
 	return cache
+}
+
+func (p *Portfolio) quoteSymbolsLocked() []string {
+	seen := make(map[string]bool, len(p.positions)+len(p.watchlist))
+	symbols := make([]string, 0, len(p.positions)+len(p.watchlist))
+	for symbol := range p.positions {
+		if symbol == "" || seen[symbol] {
+			continue
+		}
+		seen[symbol] = true
+		symbols = append(symbols, symbol)
+	}
+	for symbol := range p.watchlist {
+		if symbol == "" || seen[symbol] {
+			continue
+		}
+		seen[symbol] = true
+		symbols = append(symbols, symbol)
+	}
+	sort.Strings(symbols)
+	return symbols
+}
+
+func (p *Portfolio) watchlistStateLocked() []Security {
+	if len(p.watchlist) == 0 {
+		return nil
+	}
+	items := make([]Security, 0, len(p.watchlist))
+	for _, item := range p.watchlist {
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].DisplayCode < items[j].DisplayCode
+	})
+	return items
+}
+
+func (p *Portfolio) watchSummariesLocked() []WatchSummary {
+	if len(p.watchlist) == 0 {
+		return nil
+	}
+	securities := p.watchlistStateLocked()
+	items := make([]WatchSummary, 0, len(securities))
+	for _, security := range securities {
+		quote := p.quoteCache[security.Symbol]
+		rate, baseAvailable := quoteBaseRateForCurrency(security.Currency, p.hkdRate, p.usdRate, p.krwRate)
+		name := localizedQuoteName(security.Symbol)
+		if name == "" {
+			name = strings.TrimSpace(quote.Name)
+		}
+		if name == "" {
+			name = "-"
+		}
+		extendedPrice := 0.0
+		extendedDigits := 0
+		if strings.HasPrefix(security.Symbol, "us") {
+			extendedPrice = quote.ExtendedPrice
+			extendedDigits = quote.ExtendedPriceDigits
+		}
+		item := WatchSummary{
+			DisplayCode:        security.DisplayCode,
+			Name:               name,
+			Market:             security.Market,
+			Currency:           security.Currency,
+			OpenPrice:          quote.OpenPrice,
+			OpenPriceDigits:    quote.OpenPriceDigits,
+			CurrentPrice:       quote.Price,
+			CurrentPriceDigits: quote.PriceDigits,
+			BaseAvailable:      baseAvailable,
+			ExtendedPrice:      extendedPrice,
+			ExtendedDigits:     extendedDigits,
+		}
+		if item.OpenPriceDigits == 0 {
+			item.OpenPriceDigits = item.CurrentPriceDigits
+		}
+		if baseAvailable {
+			item.OpenPriceBase = quote.OpenPrice * rate
+			item.CurrentPriceBase = quote.Price * rate
+		}
+		if quote.OpenPrice > 0 && quote.Price > 0 {
+			item.ChangePercent = (quote.Price - quote.OpenPrice) / quote.OpenPrice
+		}
+		if quote.Price > 0 && extendedPrice > 0 {
+			item.ExtendedChange = (extendedPrice - quote.Price) / quote.Price
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 func (p *Portfolio) applyBuyLocked(record TradeRecord) {
@@ -1028,7 +1275,7 @@ func (p *Portfolio) fxRateForPositionLocked(pos *Position) float64 {
 
 func (r TradeRecord) typeLabel() string {
 	if r.Type == TradeTypeSell {
-		return "平仓"
+		return "卖出"
 	}
 	return "买入"
 }
@@ -1083,6 +1330,21 @@ func fxRateForCurrency(currency string, hkdRate float64, usdRate float64) float6
 	}
 }
 
+func quoteBaseRateForCurrency(currency string, hkdRate float64, usdRate float64, krwRate float64) (float64, bool) {
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "CNY", "RMB", "人民币":
+		return 1, true
+	case "HKD", "港币":
+		return hkdRate, hkdRate > 0
+	case "USD", "美元", "美金":
+		return usdRate, usdRate > 0
+	case "KRW", "韩元":
+		return krwRate, krwRate > 0
+	default:
+		return 0, false
+	}
+}
+
 func convertPriceToMarketCurrency(price float64, inputCurrency, marketCurrency string, hkdRate float64, usdRate float64) (float64, error) {
 	inputCurrency = normalizePriceCurrency(inputCurrency)
 	marketCurrency = normalizePriceCurrency(marketCurrency)
@@ -1109,6 +1371,21 @@ func normalizeSecurity(raw string) (Security, error) {
 
 	prefix := ""
 	switch {
+	case strings.HasPrefix(code, "ks:") || strings.HasPrefix(code, "ks."):
+		prefix = "ks"
+		code = code[3:]
+	case strings.HasPrefix(code, "kq:") || strings.HasPrefix(code, "kq."):
+		prefix = "kq"
+		code = code[3:]
+	case strings.HasPrefix(code, "kr:") || strings.HasPrefix(code, "kr."):
+		prefix = "ks"
+		code = code[3:]
+	case strings.HasPrefix(code, "ks") || strings.HasPrefix(code, "kq"):
+		prefix = code[:2]
+		code = code[2:]
+	case strings.HasPrefix(code, "kr") && len(code) > 2 && isDigits(code[2:]):
+		prefix = "ks"
+		code = code[2:]
 	case strings.HasPrefix(code, "us:") || strings.HasPrefix(code, "us."):
 		prefix = "us"
 		code = code[3:]
@@ -1137,8 +1414,21 @@ func normalizeSecurity(raw string) (Security, error) {
 
 	for _, r := range code {
 		if r < '0' || r > '9' {
-			return Security{}, errors.New("股票代码只能包含数字，或使用 sh/sz/bj/hk/us 前缀")
+			return Security{}, errors.New("股票代码只能包含数字，或使用 sh/sz/bj/hk/us/ks/kq 前缀")
 		}
+	}
+
+	if prefix == "ks" || prefix == "kq" {
+		if len(code) != 6 {
+			return Security{}, errors.New("韩股代码需要 6 位数字")
+		}
+		return Security{
+			Code:        code,
+			DisplayCode: strings.ToUpper(prefix) + code,
+			Symbol:      prefix + code,
+			Market:      "韩股",
+			Currency:    "KRW",
+		}, nil
 	}
 
 	if prefix == "hk" || (prefix == "" && len(code) <= 5) {
@@ -1171,7 +1461,7 @@ func normalizeSecurity(raw string) (Security, error) {
 	}
 
 	if prefix != "sh" && prefix != "sz" && prefix != "bj" {
-		return Security{}, errors.New("仅支持 A 股、港股和美股代码")
+		return Security{}, errors.New("仅支持 A 股、港股、美股和韩股代码")
 	}
 
 	return Security{
@@ -1181,6 +1471,19 @@ func normalizeSecurity(raw string) (Security, error) {
 		Market:      "A股",
 		Currency:    "CNY",
 	}, nil
+}
+
+func normalizePersistedSecurity(item Security) (Security, error) {
+	if symbol := strings.TrimSpace(item.Symbol); len(symbol) >= 2 {
+		switch strings.ToLower(symbol)[:2] {
+		case "us", "hk", "sh", "sz", "bj", "ks", "kq":
+			return normalizeSecurity(symbol)
+		}
+	}
+	if strings.TrimSpace(item.DisplayCode) != "" {
+		return normalizeSecurity(item.DisplayCode)
+	}
+	return normalizeSecurity(item.Code)
 }
 
 func containsLetter(value string) bool {

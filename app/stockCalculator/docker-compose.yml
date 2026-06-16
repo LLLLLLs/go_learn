@@ -1,7 +1,7 @@
 services:
-  stockcalculator-webapp:
-    image: stockcalculator-webapp:latest
-    container_name: stockcalculator-webapp
+  stock-web:
+    image: stock-web:latest
+    container_name: stock-web
     user: "0:0"
     environment:
       PORT: "8080"

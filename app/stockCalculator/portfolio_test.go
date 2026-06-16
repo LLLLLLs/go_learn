@@ -30,6 +30,29 @@ func TestNormalizeSecuritySupportsUSStocks(t *testing.T) {
 	}
 }
 
+func TestNormalizeSecuritySupportsKoreanStocks(t *testing.T) {
+	tests := []struct {
+		input       string
+		displayCode string
+		symbol      string
+	}{
+		{"KS005930", "KS005930", "ks005930"},
+		{"KS:005930", "KS005930", "ks005930"},
+		{"KR:005930", "KS005930", "ks005930"},
+		{"KQ035720", "KQ035720", "kq035720"},
+	}
+
+	for _, tt := range tests {
+		got, err := normalizeSecurity(tt.input)
+		if err != nil {
+			t.Fatalf("normalizeSecurity(%q) returned error: %v", tt.input, err)
+		}
+		if got.DisplayCode != tt.displayCode || got.Symbol != tt.symbol || got.Market != "韩股" || got.Currency != "KRW" {
+			t.Fatalf("normalizeSecurity(%q) = %+v", tt.input, got)
+		}
+	}
+}
+
 func TestConvertPriceToMarketCurrencySupportsUSD(t *testing.T) {
 	price, err := convertPriceToMarketCurrency(720, "RMB", "美元", 0.9, 7.2)
 	if err != nil {
@@ -233,6 +256,168 @@ func TestPortfolioPersistsAndLoadsQuoteCache(t *testing.T) {
 	}
 }
 
+func TestPortfolioPersistsWatchlistAndRefreshesQuotes(t *testing.T) {
+	p, err := LoadPortfolio("")
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	if err := p.AddWatch("KS005930"); err != nil {
+		t.Fatalf("AddWatch returned error: %v", err)
+	}
+	if err := p.SetKRWExchangeRateWithTime(0.0052, time.Date(2026, 6, 3, 12, 0, 0, 0, time.Local)); err != nil {
+		t.Fatalf("SetKRWExchangeRateWithTime returned error: %v", err)
+	}
+	if err := p.RefreshQuotes(staticQuoteProvider{
+		"ks005930": {Symbol: "ks005930", Name: "Samsung Electronics", Price: 70000, PriceDigits: 0, OpenPrice: 68000, OpenPriceDigits: 0},
+	}); err != nil {
+		t.Fatalf("RefreshQuotes returned error: %v", err)
+	}
+
+	summary := p.Summary()
+	if len(summary.Watchlist) != 1 {
+		t.Fatalf("len(Watchlist) = %d, want 1", len(summary.Watchlist))
+	}
+	watch := summary.Watchlist[0]
+	if watch.DisplayCode != "KS005930" || watch.CurrentPrice != 70000 || watch.OpenPrice != 68000 || !watch.BaseAvailable {
+		t.Fatalf("Watchlist item = %+v", watch)
+	}
+	if absFloat64(watch.CurrentPriceBase-364) > 1e-9 || absFloat64(watch.OpenPriceBase-353.6) > 1e-9 {
+		t.Fatalf("Watchlist RMB prices = %+v", watch)
+	}
+	if summary.MarketValue != 0 || summary.TotalAssets != 0 {
+		t.Fatalf("summary totals include watchlist: %+v", summary)
+	}
+
+	payload, err := p.MarshalState()
+	if err != nil {
+		t.Fatalf("MarshalState returned error: %v", err)
+	}
+	var state persistedState
+	if err := json.Unmarshal(payload, &state); err != nil {
+		t.Fatalf("Unmarshal returned error: %v", err)
+	}
+	if len(state.Watchlist) != 1 || state.Watchlist[0].Symbol != "ks005930" {
+		t.Fatalf("persisted watchlist = %+v", state.Watchlist)
+	}
+	if state.QuoteCache["ks005930"].OpenPrice != 68000 {
+		t.Fatalf("persisted quote = %+v", state.QuoteCache["ks005930"])
+	}
+	if state.FXCache.KRWCNY.Rate != 0.0052 {
+		t.Fatalf("persisted KRW cache = %+v", state.FXCache.KRWCNY)
+	}
+
+	loaded, err := LoadPortfolio(string(payload))
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	if got := loaded.Summary().Watchlist[0].Name; got != "三星电子" {
+		t.Fatalf("loaded watch name = %q", got)
+	}
+}
+
+func TestWatchlistShowsHeldSymbolsAndKeepsWatchedFlag(t *testing.T) {
+	p, err := LoadPortfolio("")
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	if err := p.AdjustBalanceByCurrency(1000, "美元", 1); err != nil {
+		t.Fatalf("AdjustBalanceByCurrency returned error: %v", err)
+	}
+	if err := p.AddRecord(TradeTypeBuy, "AAPL", 1, 100, "美元"); err != nil {
+		t.Fatalf("AddRecord returned error: %v", err)
+	}
+	if err := p.AddWatch("AAPL"); err != nil {
+		t.Fatalf("AddWatch returned error: %v", err)
+	}
+
+	summary := p.Summary()
+	if len(summary.Watchlist) != 1 || summary.Watchlist[0].DisplayCode != "US:AAPL" {
+		t.Fatalf("Watchlist = %+v, want held watched symbol", summary.Watchlist)
+	}
+	if len(summary.Holdings) != 1 || !summary.Holdings[0].Watched {
+		t.Fatalf("Holdings = %+v, want watched flag", summary.Holdings)
+	}
+}
+
+func TestAddWatchWithQuoteRejectsInvalidCode(t *testing.T) {
+	p, err := LoadPortfolio("")
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	err = p.AddWatchWithQuote("US:NO_SUCH_TEST", staticQuoteProvider{})
+	if err == nil {
+		t.Fatal("AddWatchWithQuote returned nil error, want invalid quote error")
+	}
+	if len(p.Summary().Watchlist) != 0 {
+		t.Fatalf("Watchlist = %+v, want empty", p.Summary().Watchlist)
+	}
+}
+
+func TestAddWatchWithQuoteCachesValidQuote(t *testing.T) {
+	p, err := LoadPortfolio("")
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	if err := p.AddWatchWithQuote("AAPL", staticQuoteProvider{
+		"usaapl": {Symbol: "usaapl", Name: "APPLE INC", Price: 190.12, PriceDigits: 2, OpenPrice: 188.5, OpenPriceDigits: 2},
+	}); err != nil {
+		t.Fatalf("AddWatchWithQuote returned error: %v", err)
+	}
+	watchlist := p.Summary().Watchlist
+	if len(watchlist) != 1 || watchlist[0].Name != "APPLE INC" || watchlist[0].CurrentPrice != 190.12 {
+		t.Fatalf("Watchlist = %+v", watchlist)
+	}
+}
+
+func TestWatchSummaryUsesLocalizedNameAndUSExtendedOnly(t *testing.T) {
+	p, err := LoadPortfolio("")
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	if err := p.AddWatchWithQuote("US:MRVL", staticQuoteProvider{
+		"usmrvl": {Symbol: "usmrvl", Name: "Marvell Technology, Inc.", Price: 279.7, PriceDigits: 2, OpenPrice: 288.85, OpenPriceDigits: 2, ExtendedPrice: 293.38, ExtendedPriceDigits: 2, ExtendedPriceChecked: true},
+	}); err != nil {
+		t.Fatalf("AddWatchWithQuote US returned error: %v", err)
+	}
+	if err := p.AddWatchWithQuote("KS000660", staticQuoteProvider{
+		"ks000660": {Symbol: "ks000660", Name: "SK hynix", Price: 2288000, PriceDigits: 0, OpenPrice: 2150000, OpenPriceDigits: 0, ExtendedPrice: 2288000, ExtendedPriceDigits: 0, ExtendedPriceChecked: true},
+	}); err != nil {
+		t.Fatalf("AddWatchWithQuote KR returned error: %v", err)
+	}
+	watchlist := p.Summary().Watchlist
+	if len(watchlist) != 2 {
+		t.Fatalf("Watchlist = %+v", watchlist)
+	}
+	if watchlist[1].DisplayCode != "US:MRVL" || watchlist[1].Name != "迈威尔科技" || watchlist[1].ExtendedPrice != 293.38 {
+		t.Fatalf("US watch summary = %+v", watchlist[1])
+	}
+	if watchlist[0].DisplayCode != "KS000660" || watchlist[0].ExtendedPrice != 0 || watchlist[0].ExtendedChange != 0 {
+		t.Fatalf("KR watch summary should hide extended price: %+v", watchlist[0])
+	}
+}
+
+func TestHoldingSummaryUsesLocalizedName(t *testing.T) {
+	p, err := LoadPortfolio("")
+	if err != nil {
+		t.Fatalf("LoadPortfolio returned error: %v", err)
+	}
+	if err := p.AdjustBalanceByCurrency(1000, "美元", 1); err != nil {
+		t.Fatalf("AdjustBalanceByCurrency returned error: %v", err)
+	}
+	if err := p.AddRecord(TradeTypeBuy, "MRVL", 1, 100, "美元"); err != nil {
+		t.Fatalf("AddRecord returned error: %v", err)
+	}
+	if err := p.RefreshQuotes(staticQuoteProvider{
+		"usmrvl": {Symbol: "usmrvl", Name: "Marvell Technology, Inc.", Price: 279.7, PriceDigits: 2},
+	}); err != nil {
+		t.Fatalf("RefreshQuotes returned error: %v", err)
+	}
+	holdings := p.Summary().Holdings
+	if len(holdings) != 1 || holdings[0].Name != "迈威尔科技" {
+		t.Fatalf("Holdings = %+v", holdings)
+	}
+}
+
 func TestPortfolioKeepsCachedQuoteAfterRebuild(t *testing.T) {
 	p, err := LoadPortfolio("")
 	if err != nil {
@@ -395,6 +580,9 @@ func TestPortfolioPersistsAndLoadsFXCache(t *testing.T) {
 	if err := p.SetUSDExchangeRateWithTime(7.25, updatedAt.Add(10*time.Second)); err != nil {
 		t.Fatalf("SetUSDExchangeRateWithTime returned error: %v", err)
 	}
+	if err := p.SetKRWExchangeRateWithTime(0.0052, updatedAt.Add(20*time.Second)); err != nil {
+		t.Fatalf("SetKRWExchangeRateWithTime returned error: %v", err)
+	}
 
 	payload, err := p.MarshalState()
 	if err != nil {
@@ -410,14 +598,17 @@ func TestPortfolioPersistsAndLoadsFXCache(t *testing.T) {
 	if state.FXCache.USDCNY.Rate != 7.25 || !state.FXCache.USDCNY.UpdatedAt.Equal(updatedAt.Add(10*time.Second)) {
 		t.Fatalf("USD cache = %+v", state.FXCache.USDCNY)
 	}
+	if state.FXCache.KRWCNY.Rate != 0.0052 || !state.FXCache.KRWCNY.UpdatedAt.Equal(updatedAt.Add(20*time.Second)) {
+		t.Fatalf("KRW cache = %+v", state.FXCache.KRWCNY)
+	}
 
 	loaded, err := LoadPortfolio(string(payload))
 	if err != nil {
 		t.Fatalf("LoadPortfolio returned error: %v", err)
 	}
 	summary := loaded.Summary()
-	if summary.HKDRate != 0.93 || summary.USDRate != 7.25 {
-		t.Fatalf("rates = %.4f/%.4f, want 0.93/7.25", summary.HKDRate, summary.USDRate)
+	if summary.HKDRate != 0.93 || summary.USDRate != 7.25 || summary.KRWRate != 0.0052 {
+		t.Fatalf("rates = %.4f/%.4f/%.6f, want 0.93/7.25/0.0052", summary.HKDRate, summary.USDRate, summary.KRWRate)
 	}
 }
 
@@ -428,6 +619,7 @@ func TestPortfolioNextFXRefreshFromCache(t *testing.T) {
 		FXCache: fxCache{
 			HKDCNY: persistedFXRate{Rate: 0.93, UpdatedAt: updatedAt},
 			USDCNY: persistedFXRate{Rate: 7.25, UpdatedAt: updatedAt.Add(10 * time.Second)},
+			KRWCNY: persistedFXRate{Rate: 0.0052, UpdatedAt: updatedAt.Add(20 * time.Second)},
 		},
 	}
 	payload, err := json.Marshal(state)
