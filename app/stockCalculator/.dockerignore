@@ -1,9 +1,0 @@
-.git
-.gitignore
-data
-tmp
-*.log
-*.test
-.DS_Store
-Dockerfile
-README.md
