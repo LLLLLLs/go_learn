@@ -1,0 +1,16 @@
+.gradle/
+.idea/
+.intellijPlatform/
+.kotlin/
+build/
+out/
+*.iml
+.DS_Store
+
+# Packaged plugin distributions
+/novelLocalPlugin-*.zip
+
+# Local downloader and generated book data
+/book/*
+!/book/book_task.sh
+!/book/config.yml
