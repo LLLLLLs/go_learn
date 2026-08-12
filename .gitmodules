@@ -1,3 +1,6 @@
 [submodule "stock"]
 	path = app/stock
 	url = git@github.com:huajianLLs/stock.git
+[submodule "novel"]
+	path = app/novel
+	url = git@github.com:huajianLLs/novel.git

@@ -1,6 +1,0 @@
-.DS_Store
-
-# Local downloader and generated book data
-/book/*
-!/tools/book_task.sh
-!/tools/config.yml
