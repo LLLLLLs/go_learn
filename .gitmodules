@@ -3,4 +3,4 @@
 	url = git@github.com:focus-creative-games/luban.git
 [submodule "stock"]
 	path = app/stock
-	url = git@github.com:LLLLLLs/stock.git
+	url = git@github.com:huajianLLs/stock.git
