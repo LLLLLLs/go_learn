@@ -1,0 +1,11 @@
+.gradle/
+.idea/
+.intellijPlatform/
+.kotlin/
+build/
+out/
+*.iml
+.DS_Store
+
+# Packaged plugin distributions
+/novelLocalPlugin-*.zip
